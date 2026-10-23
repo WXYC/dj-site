@@ -2,12 +2,14 @@ import {
   FlowsheetEntry,
   isFlowsheetEndShowEntry,
   isFlowsheetSongEntry,
+  isFlowsheetSpotlightEntry,
   isFlowsheetStartShowEntry,
 } from "@/lib/features/flowsheet/types";
 import { memo } from "react";
 import { getMessageEntrySlots } from "./messageEntrySlots";
 import MessageEntry from "./MessageEntry";
 import SongEntry from "./SongEntry/SongEntry";
+import SpotlightRowBlock from "./SpotlightRowBlock";
 import StartShowIcon from "./StartShowIcon";
 
 // Memoized: entry updates flow through Immer (RTK Query cache patches +
@@ -84,7 +86,11 @@ const Entry = memo(function Entry({
       draggable={resolvedDraggable}
       highlighted={highlighted}
     >
-      {slots.messageBlock}
+      {isFlowsheetSpotlightEntry(entry) && !readOnly ? (
+        <SpotlightRowBlock entry={entry} />
+      ) : (
+        slots.messageBlock
+      )}
     </MessageEntry>
   );
 });

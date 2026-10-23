@@ -31,13 +31,15 @@ import {
   ONE_TAP_TAG_REFUSED_SENTENCE,
   REJECTED_PROGRAM_SENTENCE,
 } from "../specialty/copy";
-import { isSpotlightDisabled } from "./whos-on-copy";
+import { isSpotlightDisabled, whosOnMessage } from "./whos-on-copy";
 import { classifyForceEndError } from "./force-end-outcome";
 import {
   CurrentShow,
   FlowsheetEntry,
   FlowsheetShowBlockEntry,
+  FlowsheetSpotlightEntry,
   FlowsheetSubmissionParams,
+  isFlowsheetSpotlightEntry,
   isFlowsheetStartShowEntry,
   FlowsheetSwitchParams,
   FlowsheetUpdateParams,
@@ -551,7 +553,26 @@ export const flowsheetApi = createApi({
             "getInfiniteEntries",
             undefined,
             (draft) => {
-              patchEntryById(draft, arg.entry_id, arg.data as Partial<FlowsheetEntry>);
+              const patch: Partial<FlowsheetEntry> = { ...arg.data };
+              // The row's text is worded from role and name, so a renamed
+              // who's-on row re-words its message with the name.
+              const row = draft.pages
+                .flat()
+                .find((item) => item.id === arg.entry_id) as
+                | FlowsheetEntry
+                | undefined;
+              if (
+                row &&
+                isFlowsheetSpotlightEntry(row) &&
+                arg.data.spotlight_name !== undefined
+              ) {
+                (patch as Partial<FlowsheetSpotlightEntry>).message = whosOnMessage(
+                  row.spotlight_role,
+                  arg.data.spotlight_name,
+                  row.message
+                );
+              }
+              patchEntryById(draft, arg.entry_id, patch);
             }
           )
         );
