@@ -430,7 +430,7 @@ describe("Entry row cells (characterization)", () => {
       { tag: "TD", className: "", colSpan: null },
     ];
     const TALKSET_ARTWORK_HTML =
-      '<div class="MuiAspectRatio-root css-4mstob-JoyAspectRatio-root"><div class="MuiAspectRatio-content MuiAspectRatio-variantPlain MuiAspectRatio-colorNeutral css-1dbufxu-JoyAspectRatio-content"><p data-first-child="" class="MuiTypography-root MuiTypography-body-md css-ff7dcq-JoyTypography-root"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-5pnok8-MuiSvgIcon-root" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="MicIcon"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3m5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72z"></path></svg></p></div></div>';
+      '<div class="MuiAspectRatio-root css-4mstob-JoyAspectRatio-root"><div class="MuiAspectRatio-content MuiAspectRatio-variantPlain MuiAspectRatio-colorNeutral css-1dbufxu-JoyAspectRatio-content"><div data-first-child="" class="MuiTypography-root MuiTypography-body-md css-ff7dcq-JoyTypography-root"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-5pnok8-MuiSvgIcon-root" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="MicIcon"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3m5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72z"></path></svg></div></div></div>';
     const TALKSET_MESSAGE_HTML =
       '<div class="MuiStack-root css-ktu002-JoyStack-root"><p class="MuiTypography-root MuiTypography-body-lg MuiTypography-colorDanger css-lo7d5y-JoyTypography-root">Talkset</p></div>';
 
@@ -478,7 +478,7 @@ describe("Entry row cells (characterization)", () => {
       { tag: "TD", className: "", colSpan: null },
     ];
     const BREAKPOINT_ARTWORK_HTML =
-      '<div class="MuiAspectRatio-root css-4mstob-JoyAspectRatio-root"><div class="MuiAspectRatio-content MuiAspectRatio-variantPlain MuiAspectRatio-colorNeutral css-1dbufxu-JoyAspectRatio-content"><p data-first-child="" class="MuiTypography-root MuiTypography-body-md css-ff7dcq-JoyTypography-root"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-5pnok8-MuiSvgIcon-root" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="TimerIcon"><path d="M9 1h6v2H9zm10.03 6.39 1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61M13 14h-2V8h2z"></path></svg></p></div></div>';
+      '<div class="MuiAspectRatio-root css-4mstob-JoyAspectRatio-root"><div class="MuiAspectRatio-content MuiAspectRatio-variantPlain MuiAspectRatio-colorNeutral css-1dbufxu-JoyAspectRatio-content"><div data-first-child="" class="MuiTypography-root MuiTypography-body-md css-ff7dcq-JoyTypography-root"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-5pnok8-MuiSvgIcon-root" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="TimerIcon"><path d="M9 1h6v2H9zm10.03 6.39 1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61M13 14h-2V8h2z"></path></svg></div></div></div>';
     const BREAKPOINT_MESSAGE_HTML =
       '<div class="MuiStack-root css-ktu002-JoyStack-root"><p class="MuiTypography-root MuiTypography-body-lg MuiTypography-colorWarning css-th0jkn-JoyTypography-root">Breakpoint</p></div>';
 
@@ -511,7 +511,7 @@ describe("Entry row cells (characterization)", () => {
       { tag: "TD", className: "", colSpan: null },
     ];
     const MARKER_ARTWORK_HTML =
-      '<div class="MuiAspectRatio-root css-4mstob-JoyAspectRatio-root"><div class="MuiAspectRatio-content MuiAspectRatio-variantPlain MuiAspectRatio-colorNeutral css-1dbufxu-JoyAspectRatio-content"><p data-first-child="" class="MuiTypography-root MuiTypography-body-md css-ff7dcq-JoyTypography-root"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-5pnok8-MuiSvgIcon-root" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="HeadphonesIcon"><path d="M12 3c-4.97 0-9 4.03-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7c0-4.97-4.03-9-9-9"></path></svg></p></div></div>';
+      '<div class="MuiAspectRatio-root css-4mstob-JoyAspectRatio-root"><div class="MuiAspectRatio-content MuiAspectRatio-variantPlain MuiAspectRatio-colorNeutral css-1dbufxu-JoyAspectRatio-content"><div data-first-child="" class="MuiTypography-root MuiTypography-body-md css-ff7dcq-JoyTypography-root"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-5pnok8-MuiSvgIcon-root" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="HeadphonesIcon"><path d="M12 3c-4.97 0-9 4.03-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7c0-4.97-4.03-9-9-9"></path></svg></div></div></div>';
     const MARKER_MESSAGE_HTML =
       '<div class="MuiStack-root css-ktu002-JoyStack-root"><p class="MuiTypography-root MuiTypography-body-lg MuiTypography-colorSuccess css-1w3h90d-JoyTypography-root">DJ Test</p><p class="MuiTypography-root MuiTypography-body-md css-ljoq8r-JoyTypography-root">started the set</p></div>';
 

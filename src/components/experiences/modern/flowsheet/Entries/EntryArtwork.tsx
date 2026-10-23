@@ -47,7 +47,8 @@ export function MarkerEntryArtwork({ icon }: { icon: ReactNode }) {
         minHeight: "20px",
       }}
     >
-      <Typography>{icon}</Typography>
+      {/* A div, not Joy's default <p>: the icon can be a block-level tile. */}
+      <Typography component="div">{icon}</Typography>
     </AspectRatio>
   );
 }
