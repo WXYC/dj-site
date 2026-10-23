@@ -7,10 +7,16 @@ import type { FlowsheetRangeShow } from "@wxyc/shared";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
 import { toArchiveStreamRow } from "@/lib/features/flowsheet/stream-row";
 import { useEntryActions } from "@/src/hooks/entryActions";
+import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { useReorderableEntries } from "@/src/hooks/useReorderableEntries";
-import { FlowsheetDragContext } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
-import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import {
+  FlowsheetDragContext,
+  FlowsheetMoveContext,
+} from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
+import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
+import MobileEntry from "@/src/components/experiences/modern/flowsheet/Entries/MobileEntry";
+import {
+  FLOWSHEET_MOBILE_QUERY,
   FLOWSHEET_TABLE_SX,
   FlowsheetColumnSizingRow,
 } from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
@@ -43,7 +49,15 @@ export default function ShowEntriesPanel({
 
   const { reorder } = useEntryActions();
   const settled = useMemo(() => rows.map((row) => row.entry), [rows]);
-  const { shown, onReorder, dragContext } = useReorderableEntries({
+  const isMobile = useMediaQuery(FLOWSHEET_MOBILE_QUERY);
+  const {
+    shown,
+    onReorder,
+    dragContext,
+    moveContext,
+    firstDraggable,
+    lastDraggable,
+  } = useReorderableEntries({
     entries: settled,
     reorder,
   });
@@ -84,7 +98,24 @@ export default function ShowEntriesPanel({
       {/* No inner scrollport: the view above already scrolls, and a capped
           panel inside it puts a second bar beside the first for the same
           gesture. */}
-      {rows.length > 0 && (
+      {rows.length > 0 && isMobile && (
+        <FlowsheetMoveContext.Provider value={moveContext}>
+          <Box sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 1.5 }}>
+            {settled.map((entry, index) => (
+              <MobileEntry
+                key={entry.id}
+                entry={entry}
+                playing={false}
+                readOnly={!editable}
+                canMoveUp={index > firstDraggable}
+                canMoveDown={index < lastDraggable}
+              />
+            ))}
+          </Box>
+        </FlowsheetMoveContext.Provider>
+      )}
+
+      {rows.length > 0 && !isMobile && (
         <Box sx={{ mt: 1 }}>
           {/* The live flowsheet's own rows; read-only unless `editable`. The rotation chip on an
               archived play means the release was in rotation at some point --
