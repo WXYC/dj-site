@@ -1110,6 +1110,42 @@ describe("flowsheetHooks", () => {
       expect(mockUpdateFlowsheetEntry).toHaveBeenCalledWith(updateData);
     });
 
+    // The row editor words a refused rename from this return value, and a
+    // rename's refusal is not toasted, so dropping it leaves the DJ with no
+    // explanation at all.
+    it("resolves updateFlowsheet to the sentence of a refused write", async () => {
+      mockUpdateFlowsheetEntry.mockResolvedValueOnce({
+        error: { expected: true, sentence: "Who's on air isn't turned on yet." },
+      });
+      const { result } = renderHook(() => useFlowsheet(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(
+        result.current.updateFlowsheet({
+          entry_id: 1,
+          data: { spotlight_name: "Porch Static Duo" },
+        })
+      ).resolves.toBe("Who's on air isn't turned on yet.");
+    });
+
+    it.each([
+      ["an accepted write", { data: {} }],
+      ["a refusal with no sentence", { error: { status: 500 } }],
+    ])("resolves updateFlowsheet to nothing for %s", async (_label, answer) => {
+      mockUpdateFlowsheetEntry.mockResolvedValueOnce(answer);
+      const { result } = renderHook(() => useFlowsheet(), {
+        wrapper: createWrapper(),
+      });
+
+      await expect(
+        result.current.updateFlowsheet({
+          entry_id: 1,
+          data: { spotlight_name: "Porch Static Duo" },
+        })
+      ).resolves.toBeUndefined();
+    });
+
     it("should not call updateFlowsheet when user is not loaded", () => {
       mockUseRegistry.mockReturnValue({
         loading: true,

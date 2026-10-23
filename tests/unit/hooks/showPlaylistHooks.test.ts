@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { SpecialtyShowRef } from "@wxyc/shared";
 import type { ShowPlaylistWire } from "@/lib/features/show-playlist/types";
@@ -9,12 +9,21 @@ const queryState: {
   error: unknown;
 } = { data: undefined, isFetching: false, error: undefined };
 
+const mockUpdateShowEntry = vi.fn();
 vi.mock("@/lib/features/show-playlist/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/features/show-playlist/api")>()),
   useGetShowPlaylistQuery: () => queryState,
+  useUpdateShowEntryMutation: () => [mockUpdateShowEntry],
+  useRemoveShowEntryMutation: () => [vi.fn()],
+  useReorderShowEntryMutation: () => [vi.fn()],
 }));
 
-import { useShowPlaylist } from "@/src/hooks/showPlaylistHooks";
+const mockToastError = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { error: (...args: unknown[]) => mockToastError(...args), success: vi.fn() },
+}));
+
+import { usePastShowEntryActions, useShowPlaylist } from "@/src/hooks/showPlaylistHooks";
 
 const wire = (over: Partial<ShowPlaylistWire> = {}): ShowPlaylistWire => ({
   id: 900001,
@@ -135,5 +144,56 @@ describe("useShowPlaylist", () => {
     // A soft-failed body yields the empty playlist too; saying the show does
     // not exist because the response failed to parse is a different claim.
     expect(render({}, { error: { status: 500 } }).notFound).toBe(false);
+  });
+});
+
+describe("usePastShowEntryActions().updateFlowsheet", () => {
+  const SENTENCE = "Who's on air isn't turned on yet.";
+  const rejectWith = (error: unknown) =>
+    mockUpdateShowEntry.mockReturnValueOnce({ unwrap: () => Promise.reject(error) });
+  const actions = () => renderHook(() => usePastShowEntryActions(900001)).result.current;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // The row words a refused rename itself, by the row. A toast here would say
+  // it twice.
+  it("returns a refused rename's sentence without toasting it", async () => {
+    rejectWith({ expected: true, sentence: SENTENCE });
+
+    await expect(
+      actions().updateFlowsheet({ entry_id: 7100, data: { spotlight_name: "Porch Static Duo" } })
+    ).resolves.toBe(SENTENCE);
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  // Nothing else reads the return value of a song-field edit, so the sentence
+  // has to reach the DJ as a toast.
+  it("toasts and returns the sentence of a refused song-field edit", async () => {
+    rejectWith({ expected: true, sentence: SENTENCE });
+
+    await expect(
+      actions().updateFlowsheet({ entry_id: 7100, data: { track_title: "la paradoja" } })
+    ).resolves.toBe(SENTENCE);
+    expect(mockToastError).toHaveBeenCalledExactlyOnceWith(SENTENCE);
+  });
+
+  it("returns nothing and toasts nothing when the global toast already spoke", async () => {
+    rejectWith({ status: 500 });
+
+    await expect(
+      actions().updateFlowsheet({ entry_id: 7100, data: { spotlight_name: "Porch Static Duo" } })
+    ).resolves.toBeUndefined();
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it("returns nothing for an accepted write", async () => {
+    mockUpdateShowEntry.mockReturnValueOnce({ unwrap: () => Promise.resolve({}) });
+
+    await expect(
+      actions().updateFlowsheet({ entry_id: 7100, data: { spotlight_name: "Porch Static Duo" } })
+    ).resolves.toBeUndefined();
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 });
