@@ -8,6 +8,7 @@ import { specialtySubtitle } from "@/lib/features/specialty/subtitle";
 import { Authorization } from "@/lib/features/admin/types";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useLiveStatus } from "@/src/hooks/flowsheetHooks";
+import RequestLineControl from "@/src/components/experiences/modern/RequestLineControl";
 import EditShowDetailsDialog from "@/src/components/experiences/modern/EditShowDetailsDialog";
 
 /**
@@ -57,6 +58,7 @@ export default function SetTags() {
       ) : (
         tag
       )}
+      {live && <RequestLineControl showId={show.id} />}
       {editing && (
         <EditShowDetailsDialog
           showId={show.id}

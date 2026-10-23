@@ -17,6 +17,7 @@ import { useUpdateShowMutation } from "@/lib/features/flowsheet/api";
 import { useGetSpecialtyShowsQuery } from "@/lib/features/specialty/api";
 import { specialtyCopy } from "@/lib/features/specialty/copy";
 import { programsForStart } from "@/lib/features/specialty/slot-match";
+import RequestLineControl from "@/src/components/experiences/modern/RequestLineControl";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
 
 const NONE = "none";
@@ -124,6 +125,7 @@ export default function EditShowDetailsDialog({
             slotProps={{ input: { maxLength: TITLE_MAX_LENGTH } }}
           />
         </FormControl>
+        <RequestLineControl showId={showId} />
         {refusal && (
           <Typography level="body-sm" color="danger" role="alert">
             {refusal}

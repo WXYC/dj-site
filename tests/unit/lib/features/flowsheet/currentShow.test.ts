@@ -35,7 +35,15 @@ const page = (body: Record<string, unknown>) =>
 
 describe("getCurrentShow", () => {
   it.each([
-    ["the show matching on_air.show_id", { on_air: { dj_name: "DJ", show_id: 91 }, shows: [OLD_SHOW, OPEN_SHOW] }, OPEN_SHOW],
+    ["the show matching on_air.show_id", { on_air: { dj_name: "DJ", show_id: 91 }, shows: [OLD_SHOW, OPEN_SHOW] }, { ...OPEN_SHOW, spotlight_role: null }],
+    [
+      "the request line and spotlight role from on_air",
+      {
+        on_air: { dj_name: "DJ", show_id: 91, request_line: { mode: "closed", source: "spotlight" }, spotlight: { spotlight_role: "reader" } },
+        shows: [OPEN_SHOW],
+      },
+      { ...OPEN_SHOW, request_line: { mode: "closed", source: "spotlight" }, spotlight_role: "reader" },
+    ],
     ["null when nobody is on air", { on_air: null, shows: [OLD_SHOW] }, null],
     ["null when shows is absent", { on_air: { dj_name: "DJ", show_id: 91 } }, null],
     ["null when the open show is not listed", { on_air: { dj_name: "DJ", show_id: 92 }, shows: [OLD_SHOW] }, null],
@@ -101,6 +109,8 @@ describe("updateShow refusals", () => {
     ["a 400 for a cleared program tag", { specialty_id: null }, 400, { message: "x" }, REJECTED_PROGRAM_SENTENCE, true],
     ["a 400 for a title only", { show_name: "x" }, 400, { message: "Bad show_name" }, SHOW_DETAILS_REFUSED_SENTENCE, true],
     ["a closed_show 403", { show_name: "x" }, 403, { code: "closed_show", message: "Show closed" }, CLOSED_SHOW_SENTENCE, true],
+    ["a 400 for a request mode", { request_mode: "closed" as const }, 400, { message: "Bad request_mode" }, SHOW_DETAILS_REFUSED_SENTENCE, true],
+    ["a closed_show 403 for a request mode", { request_mode: null }, 403, { code: "closed_show" }, CLOSED_SHOW_SENTENCE, true],
     ["a 403 without a code", { show_name: "x" }, 403, { error: "forbidden" }, null, false],
     ["a ban 403", { show_name: "x" }, 403, { message: "Banned", reason: "x" }, null, false],
     ["a 401", { show_name: "x" }, 401, { message: "Unauthorized" }, null, false],
