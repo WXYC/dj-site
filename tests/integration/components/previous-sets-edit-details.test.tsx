@@ -65,6 +65,8 @@ describe.each([
     ["a DJ on an ended show, even their own", Authorization.DJ, { ...ENDED, show_djs: ON_AIR_WITH_ME.show_djs }, false],
     ["a DJ on the show while it is on the air", Authorization.DJ, ON_AIR_WITH_ME, true],
     ["a DJ not on the show while it is on the air", Authorization.DJ, { end_time: null }, false],
+    ["a music director on another DJ's open show", Authorization.MD, { end_time: null }, true],
+    ["a station manager on another DJ's open show", Authorization.SM, { end_time: null }, true],
   ])("for %s: offered %s", async (_who, authority, playlist, offered) => {
     mockAuth.authority = authority;
     servePlaylist(playlist);
