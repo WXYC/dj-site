@@ -4,17 +4,34 @@ import {
   FlowsheetEntry,
   isFlowsheetBreakpointEntry,
   isFlowsheetEndShowEntry,
+  isFlowsheetSpotlightEntry,
   isFlowsheetStartShowEntry,
   isFlowsheetTalksetEntry,
 } from "@/lib/features/flowsheet/types";
 import {
+  Album,
   Headphones,
   Logout,
+  MenuBook,
   Mic,
+  MusicNote,
   Notifications,
+  Person,
+  RecordVoiceOver,
   Timer,
 } from "@mui/icons-material";
 import type { ColorPaletteProp } from "@mui/joy";
+import type { SpotlightRole } from "@wxyc/shared";
+
+// Keyed by the contract's role union, so a role added upstream fails `tsc`
+// here until it has an icon.
+const WHOS_ON_ICONS: Record<SpotlightRole, typeof Headphones> = {
+  performer: MusicNote,
+  reader: MenuBook,
+  dj: Album,
+  guest: Person,
+  host: RecordVoiceOver,
+};
 
 export type MessageEntryPresentation = {
   Icon: typeof Headphones;
@@ -84,6 +101,18 @@ export function getMessageEntryPresentation(
       color: ENTRY_TONES.breakpoint.color,
       textColor: ENTRY_TONES.breakpoint.color,
       headline,
+      editable: true,
+    };
+  }
+
+  if (isFlowsheetSpotlightEntry(entry)) {
+    return {
+      // A role this build does not know has no icon of its own.
+      Icon: WHOS_ON_ICONS[entry.spotlight_role] ?? Person,
+      color: ENTRY_TONES.whosOn.color,
+      textColor: ENTRY_TONES.whosOn.color,
+      headline,
+      caption,
       editable: true,
     };
   }

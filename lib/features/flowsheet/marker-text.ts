@@ -4,14 +4,17 @@ import {
   FlowsheetMessageEntry,
   isFlowsheetBreakpointEntry,
   isFlowsheetEndShowEntry,
+  isFlowsheetSpotlightEntry,
   isFlowsheetStartShowEntry,
   isFlowsheetTalksetEntry,
 } from "@/lib/features/flowsheet/types";
+import { whosOnRoleText } from "@/lib/features/flowsheet/whos-on-copy";
 
 export type MarkerText = {
   // DJ name for the show markers, message text otherwise.
   headline: string;
-  // Tertiary suffix ("started the set" / "ended the set"), markers only.
+  // Tertiary suffix ("started the set" / "ended the set" / "live in the
+  // studio"), markers only.
   caption?: string;
 };
 
@@ -36,6 +39,14 @@ export function getMarkerText(entry: FlowsheetEntry): MarkerText {
 
   if (isFlowsheetBreakpointEntry(entry)) {
     return { headline: (entry as FlowsheetBreakpointEntry).message };
+  }
+
+  // A role this build does not know keeps the server's message as the headline.
+  if (isFlowsheetSpotlightEntry(entry)) {
+    const caption = whosOnRoleText(entry.spotlight_role);
+    return caption === undefined
+      ? { headline: entry.message }
+      : { headline: entry.spotlight_name, caption };
   }
 
   // Callers only reach here for message-shaped entries (they route song

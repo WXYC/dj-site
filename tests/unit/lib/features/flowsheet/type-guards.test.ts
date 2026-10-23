@@ -6,6 +6,7 @@ import {
   isFlowsheetEndShowEntry,
   isFlowsheetTalksetEntry,
   isFlowsheetBreakpointEntry,
+  isFlowsheetSpotlightEntry,
   FlowsheetEntry,
 } from "@/lib/features/flowsheet/types";
 
@@ -98,6 +99,35 @@ describe("isFlowsheetTalksetEntry / isFlowsheetBreakpointEntry classify by entry
   ])("$name", ({ entry, isTalkset, isBreakpoint }) => {
     expect(isFlowsheetTalksetEntry(entry)).toBe(isTalkset);
     expect(isFlowsheetBreakpointEntry(entry)).toBe(isBreakpoint);
+  });
+});
+
+describe("isFlowsheetSpotlightEntry classifies by entry_type, not message text", () => {
+  it.each([
+    {
+      name: "a who's-on row whose text says Talkset",
+      entry: {
+        ...base,
+        entry_type: "spotlight",
+        message: "Talkset",
+        spotlight_role: "performer",
+        spotlight_name: "Porch Static",
+      } satisfies FlowsheetEntry,
+      expected: true,
+    },
+    {
+      name: "a message row reading like a who's-on row",
+      entry: {
+        ...base,
+        entry_type: "message",
+        message: "Porch Static live in the studio",
+      } satisfies FlowsheetEntry,
+      expected: false,
+    },
+    { name: "a talkset", entry: talksetEntry, expected: false },
+    { name: "a song", entry: songEntry, expected: false },
+  ])("$name", ({ entry, expected }) => {
+    expect(isFlowsheetSpotlightEntry(entry)).toBe(expected);
   });
 });
 

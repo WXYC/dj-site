@@ -50,7 +50,7 @@ const MARKER_CASES = {
   },
   spotlight: {
     overrides: { spotlight_role: "performer" as const, spotlight_name: "Porch Static" },
-    expected: { headline: "Porch Static live in the studio", caption: undefined },
+    expected: { headline: "Porch Static", caption: "live in the studio" },
   },
 } satisfies Record<MarkerType, { overrides: object; expected: MarkerText }>;
 
@@ -70,7 +70,64 @@ describe("getMarkerText", () => {
   });
 });
 
+describe("getMarkerText on a who's-on row", () => {
+  it.each([
+    ["performer", "live in the studio"],
+    ["reader", "reading now"],
+    ["dj", "mixing"],
+    ["guest", "in the studio as a guest"],
+    ["host", "hosting"],
+  ] as const)("words the %s role as %s", (spotlight_role, caption) => {
+    const entry = convertV2Entry(
+      V2_ENTRY_FACTORIES_BY_TYPE.spotlight({
+        spotlight_role,
+        spotlight_name: "Porch Static",
+        message: "Spotlight: something the server composed",
+      })
+    );
+
+    expect(getMarkerText(entry)).toEqual({ headline: "Porch Static", caption });
+  });
+
+  it("reads the role from entry_type, not from the message text", () => {
+    const entry = convertV2Entry(
+      V2_ENTRY_FACTORIES_BY_TYPE.message({ message: "Porch Static live in the studio" })
+    );
+
+    expect(getMarkerText(entry)).toEqual({
+      headline: "Porch Static live in the studio",
+      caption: undefined,
+    });
+  });
+
+  it("falls back to the server's message for a role this build does not know", () => {
+    const entry = convertV2Entry(
+      V2_ENTRY_FACTORIES_BY_TYPE.spotlight({
+        spotlight_role: "emcee" as never,
+        spotlight_name: "Porch Static",
+        message: "Emcee: Porch Static",
+      })
+    );
+
+    expect(getMarkerText(entry)).toEqual({
+      headline: "Emcee: Porch Static",
+      caption: undefined,
+    });
+  });
+});
+
 describe("messageEntryLabel", () => {
+  it("reads a who's-on row as one line", () => {
+    const entry = convertV2Entry(
+      V2_ENTRY_FACTORIES_BY_TYPE.spotlight({
+        spotlight_role: "performer",
+        spotlight_name: "Porch Static",
+      })
+    );
+
+    expect(messageEntryLabel(entry)).toBe("Porch Static live in the studio");
+  });
+
   it("joins headline and caption when present", () => {
     expect(messageEntryLabel(startShow)).toBe("DJ Chowder started the set");
   });

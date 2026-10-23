@@ -1259,6 +1259,40 @@ describe("flowsheet conversions", () => {
         ...over,
       }) as FlowsheetRangeEntryWire;
 
+    it("words a who's-on row from its role and name and keeps both, not the server's message", () => {
+      const converted = convertRangeEntry(
+        rangeEntry({
+          id: 9,
+          entry_type: "spotlight",
+          spotlight_role: "host",
+          spotlight_name: "Porch Static",
+          message: "Spotlight: Porch Static",
+        })
+      );
+
+      expect(converted).toMatchObject({
+        entry_type: "spotlight",
+        spotlight_role: "host",
+        spotlight_name: "Porch Static",
+        message: "Porch Static hosting",
+      });
+      expect(converted).not.toHaveProperty("track_title");
+    });
+
+    it("keeps the server's message for a who's-on role this build does not know", () => {
+      const converted = convertRangeEntry(
+        rangeEntry({
+          id: 9,
+          entry_type: "spotlight",
+          spotlight_role: "emcee" as never,
+          spotlight_name: "Porch Static",
+          message: "Emcee: Porch Static",
+        })
+      );
+
+      expect(converted).toMatchObject({ message: "Emcee: Porch Static" });
+    });
+
     it("renames rotation_bin onto the field the status chips read", () => {
       const converted = convertRangeEntry(
         rangeEntry({

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { ReactNode } from "react";
 import { fireEvent, screen } from "@testing-library/react";
 import {
   CAPSULE_SELECTOR,
@@ -18,6 +19,7 @@ import {
 import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
 import {
   createTestV2MessageEntry,
+  createTestV2SpotlightEntry,
 } from "@/tests/fixtures/fixtures";
 import EntryRow from "@/src/components/experiences/classic/flowsheet/EntryRow";
 
@@ -44,6 +46,7 @@ function renderRow(props: {
   onDrop?: (entryId: number) => void;
   onDragEnd?: () => void;
   program?: string;
+  leading?: { time: string; indicators: ReactNode };
 }) {
   const dragHandlersEnabled = props.dragHandlers !== false;
   return renderWithProviders(
@@ -52,6 +55,7 @@ function renderRow(props: {
         <EntryRow
           entry={props.entry}
           program={props.program}
+          leading={props.leading}
           onUpdate={props.onUpdate ?? (() => {})}
           onDelete={props.onDelete ?? (() => {})}
           seguesIntoNext={props.seguesIntoNext}
@@ -487,6 +491,60 @@ describe("Classic EntryRow classifies by entry_type, not message text", () => {
     const { container } = renderRow({ entry });
     expect(container.querySelector("tr.breakpoint-row")).toBeNull();
     expect(container.querySelector("tr")).toBeNull();
+  });
+});
+
+describe("Classic EntryRow who's-on row", () => {
+  const whosOn = () =>
+    convertV2Entry(
+      createTestV2SpotlightEntry({
+        id: 77,
+        spotlight_role: "performer",
+        spotlight_name: "Porch Static",
+        message: "Spotlight: Porch Static",
+      })
+    );
+  const leading = { time: "9:15 PM", indicators: null };
+
+  it.each([
+    ["the live flowsheet (no leading)", undefined, 6],
+    ["the editable past-show table (leading)", leading, 7],
+  ])("draws the dark spotlight-row on %s", (_path, leadingProp, span) => {
+    const { container } = renderRow({ entry: whosOn(), leading: leadingProp });
+
+    const row = container.querySelector("tr.spotlight-row");
+    expect(row).not.toBeNull();
+    expect(row!.classList.contains("flowsheetEntryData")).toBe(true);
+    const cell = row!.querySelector("td[colspan]");
+    expect(cell).toHaveAttribute("colspan", String(span));
+    expect(cell).toHaveAttribute("align", "center");
+    expect(cell!.textContent).toBe("Porch Static live in the studio");
+  });
+
+  it("offers a remove control and no edit", () => {
+    const onDelete = vi.fn();
+    renderRow({ entry: whosOn(), onDelete });
+
+    fireEvent.click(screen.getByRole("button", { name: /actions/i }));
+    expect(screen.queryByText("Edit")).toBeNull();
+    fireEvent.click(screen.getByText("Delete"));
+    expect(onDelete).toHaveBeenCalledWith(77);
+  });
+
+  it("is not draggable and carries no spotlight word in its text", () => {
+    const { container } = renderRow({ entry: whosOn() });
+
+    expect(container.querySelector("tr")!.getAttribute("draggable")).not.toBe("true");
+    expect(container.textContent).not.toMatch(/spotlight/i);
+  });
+
+  it("draws no who's-on row for a message-typed entry reading like one", () => {
+    const entry = convertV2Entry(
+      createTestV2MessageEntry({ message: "Porch Static live in the studio" })
+    );
+    const { container } = renderRow({ entry });
+
+    expect(container.querySelector("tr.spotlight-row")).toBeNull();
   });
 });
 

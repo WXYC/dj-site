@@ -1,11 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { getMessageEntryPresentation } from "@/src/components/experiences/modern/flowsheet/Entries/entryPresentation";
 import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
+import { ENTRY_TONES } from "@/lib/features/experiences/modern/tokens/roles";
+import { getMarkerText } from "@/lib/features/flowsheet/marker-text";
 import {
   createTestV2TalksetEntry,
   createTestV2MessageEntry,
+  createTestV2SpotlightEntry,
 } from "@/tests/fixtures/fixtures";
-import { Mic, Notifications } from "@mui/icons-material";
+import {
+  Album,
+  MenuBook,
+  Mic,
+  MusicNote,
+  Notifications,
+  Person,
+  RecordVoiceOver,
+} from "@mui/icons-material";
 import type { FlowsheetEntry } from "@/lib/features/flowsheet/types";
 
 describe("getMessageEntryPresentation classifies by entry_type, not message text", () => {
@@ -49,5 +60,60 @@ describe("getMessageEntryPresentation labels a converted talkset", () => {
     const entry = convertV2Entry(createTestV2TalksetEntry({ message: "TALKSET" }));
 
     expect(getMessageEntryPresentation(entry).headline).toBe("Talkset");
+  });
+});
+
+describe("getMessageEntryPresentation on a who's-on row", () => {
+  it.each([
+    ["performer", MusicNote, "live in the studio"],
+    ["reader", MenuBook, "reading now"],
+    ["dj", Album, "mixing"],
+    ["guest", Person, "in the studio as a guest"],
+    ["host", RecordVoiceOver, "hosting"],
+  ] as const)("draws the %s role with its own icon and the neutral soft tone", (spotlight_role, Icon, caption) => {
+    const entry = convertV2Entry(
+      createTestV2SpotlightEntry({ spotlight_role, spotlight_name: "Porch Static" })
+    );
+    const presentation = getMessageEntryPresentation(entry);
+
+    expect(presentation).toMatchObject({
+      Icon,
+      color: "neutral",
+      textColor: "neutral",
+      headline: "Porch Static",
+      caption,
+      editable: true,
+    });
+    expect({ headline: presentation.headline, caption: presentation.caption }).toEqual(
+      getMarkerText(entry)
+    );
+  });
+
+  it("gives the role a tone no other row type uses", () => {
+    const { whosOn, ...others } = ENTRY_TONES;
+
+    expect(whosOn).toEqual({ color: "neutral", variant: "soft" });
+    expect(Object.values(others).map((tone) => tone.color)).not.toContain("neutral");
+  });
+
+  it("classifies by entry_type: a message row reading like a who's-on row stays generic", () => {
+    const entry = convertV2Entry(
+      createTestV2MessageEntry({ message: "Porch Static live in the studio" })
+    );
+
+    expect(getMessageEntryPresentation(entry).Icon).toBe(Notifications);
+  });
+
+  it("keeps a row with a role this build does not know a who's-on row, in the server's words", () => {
+    const entry = convertV2Entry(
+      createTestV2SpotlightEntry({
+        spotlight_role: "emcee" as never,
+        message: "Emcee: Porch Static",
+      })
+    );
+    const presentation = getMessageEntryPresentation(entry);
+
+    expect(presentation).toMatchObject({ color: "neutral", headline: "Emcee: Porch Static" });
+    expect(presentation.Icon).toBe(Person);
   });
 });

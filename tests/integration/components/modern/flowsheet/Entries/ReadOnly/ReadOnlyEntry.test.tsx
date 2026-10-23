@@ -95,7 +95,7 @@ const ENTRY_TYPE_CASES = {
   talkset: { overrides: { message: "Talkset - Station ID" }, text: "Talkset - Station ID" },
   breakpoint: { overrides: { message: "3:00 PM Breakpoint", radio_hour: null }, text: "3:00 PM Breakpoint" },
   message: { overrides: { message: "Generic notification message" }, text: "Generic notification message" },
-  spotlight: { overrides: { spotlight_role: "guest" as const, spotlight_name: "Jessica Pratt" }, text: "Jessica Pratt in the studio as a guest" },
+  spotlight: { overrides: { spotlight_role: "guest" as const, spotlight_name: "Jessica Pratt" }, text: "Jessica Pratt" },
 } satisfies Record<FlowsheetEntryType, { overrides: object; text: string }>;
 
 describe("ReadOnlyEntry", () => {
@@ -148,6 +148,20 @@ describe("ReadOnlyEntry", () => {
 
     expect(screen.getAllByText(text).length).toBeGreaterThan(0);
     expect(container.textContent?.trim().length).toBeGreaterThan(0);
+  });
+
+  it("renders a who's-on row's role wording beside the name, not the server's message", () => {
+    const entry = convertV2Entry(
+      V2_ENTRY_FACTORIES_BY_TYPE.spotlight({
+        spotlight_role: "guest",
+        spotlight_name: "Jessica Pratt",
+        message: "Spotlight: Jessica Pratt",
+      })
+    );
+    renderWithPublicProviders(<ReadOnlyEntry entry={entry} playing={false} />);
+
+    expect(screen.getAllByText("in the studio as a guest").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Spotlight/i)).not.toBeInTheDocument();
   });
 
   it("renders a marker's text in both the xl and below-xl middle cells", () => {

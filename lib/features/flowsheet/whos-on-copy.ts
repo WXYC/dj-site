@@ -17,20 +17,24 @@ export const WHOS_ON_ROLES: readonly RoleCopy[] = [
   { role: "host", menu: "Host", row: "hosting" },
 ];
 
+/** What follows the name in a row, or undefined for a role this build does not know. */
+export function whosOnRoleText(role: SpotlightRole): string | undefined {
+  return WHOS_ON_ROLES.find((r) => r.role === role)?.row;
+}
+
 /**
  * A row's text as one line: the name, then its role. The server also sends a
- * `message` for these rows; the live flowsheet words them itself so an
- * optimistic row and the row the server returns read alike. Previous Sets, the
- * archive stream and the classic read-only table still show the server's
- * message until the rendering slice lands. A role this build does not know
- * degrades to the server's message, as an unknown entry type does.
+ * `message` for these rows; every surface words them itself so an optimistic
+ * row, the row the server returns, Previous Sets and the archive stream all
+ * read alike. A role this build does not know degrades to the server's
+ * message, as an unknown entry type does.
  */
 export function whosOnMessage(
   role: SpotlightRole,
   name: string,
   serverMessage: string = name
 ): string {
-  const row = WHOS_ON_ROLES.find((r) => r.role === role)?.row;
+  const row = whosOnRoleText(role);
   return row === undefined ? serverMessage : `${name} ${row}`;
 }
 

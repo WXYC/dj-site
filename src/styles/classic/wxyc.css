@@ -213,6 +213,8 @@ html[data-experience="classic"] body {
 .talkset-row td { padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; color: #DDDD22; }
 .breakpoint-row { background: #444; }
 .breakpoint-row td { padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; color: #80c880; text-align: center; }
+.spotlight-row { background: #3b4048; }
+.spotlight-row td { padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; color: #c9d4e4; text-align: center; }
 
 .sortable-header {
 	cursor: pointer;
