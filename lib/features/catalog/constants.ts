@@ -16,8 +16,8 @@ export const DISCOGS_UNAVAILABLE_NOTE_MAX_LENGTH = 500;
 /**
  * `library.album_title`, `library.alternate_artist_name`, `library.label`, and
  * `library.album_artist` are all `varchar(128)`. POST /library and PATCH
- * /library/:id reject longer values with a 400, so the add and edit UIs must
- * cap them client-side rather than let the round trip fail.
+ * /library/:id reject longer values with a 400. The edit form caps all four
+ * client-side; the add panel caps only `album_artist` so far.
  */
 export const ALBUM_TEXT_MAX_LENGTH = 128;
 

@@ -224,7 +224,10 @@ function AddReleaseForm() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setArtistNotFound(null);
-    if (albumArtistTooLong) return;
+    // Save is disabled while this holds; Enter in a field can still submit.
+    if (albumArtistTooLong) {
+      return;
+    }
 
     const albumTitle = form.albumTitle.trim();
     const artistName = form.artistName.trim();
@@ -513,7 +516,12 @@ function AddReleaseForm() {
                 </FormControl>
 
                 <Stack direction="row" justifyContent="flex-end">
-                  <Button color="success" type="submit" loading={isLoading}>
+                  <Button
+                    color="success"
+                    type="submit"
+                    loading={isLoading}
+                    disabled={albumArtistTooLong}
+                  >
                     Save Release
                   </Button>
                 </Stack>
