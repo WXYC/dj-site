@@ -31,6 +31,19 @@ describe("describeNonTrackEntry", () => {
     ).toBe(expected);
   });
 
+  it("words a who's-on row from its role and name, not the server's message", () => {
+    expect(
+      describeNonTrackEntry(
+        entry({
+          entry_type: "spotlight",
+          spotlight_role: "performer",
+          spotlight_name: "Porch Static",
+          message: "Spotlight: Porch Static",
+        })
+      )
+    ).toBe("Porch Static live in the studio");
+  });
+
   it("normalizes the legacy talkset token", () => {
     expect(
       describeNonTrackEntry(entry({ entry_type: "talkset", message: "TALKSET" }))

@@ -54,6 +54,34 @@ describe("toArchiveStreamRow", () => {
     },
   );
 
+  it("words a who's-on stream entry from its role and name, whatever message the server sent", () => {
+    const row = toArchiveStreamRowFromStreamEntry(
+      V2_ENTRY_FACTORIES_BY_TYPE.spotlight({
+        spotlight_role: "reader",
+        spotlight_name: "Porch Static",
+        message: "Spotlight: Porch Static",
+      }),
+    );
+
+    expect(row.entry).toMatchObject({
+      entry_type: "spotlight",
+      spotlight_role: "reader",
+      spotlight_name: "Porch Static",
+      message: "Porch Static reading now",
+    });
+  });
+
+  it("keeps the server's message for a who's-on role this build does not know", () => {
+    const row = toArchiveStreamRowFromStreamEntry(
+      V2_ENTRY_FACTORIES_BY_TYPE.spotlight({
+        spotlight_role: "emcee" as never,
+        message: "Emcee: Porch Static",
+      }),
+    );
+
+    expect(row.entry).toMatchObject({ message: "Emcee: Porch Static" });
+  });
+
   it("carries the wire row's id and show id through", () => {
     const row = toArchiveStreamRow(
       v2ToRangeShape(createTestV2TrackEntry({ id: 42, show_id: 7 })),

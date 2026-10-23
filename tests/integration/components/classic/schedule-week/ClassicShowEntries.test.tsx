@@ -251,6 +251,23 @@ describe("ClassicShowEntries", () => {
       expect(rowClasses(container)).toEqual([expected]);
     });
 
+    it("gives a who's-on row the spotlight-row class, centered, in the client's wording", () => {
+      const { container } = renderEntries([
+        entry({
+          id: 1,
+          entry_type: "spotlight",
+          spotlight_role: "performer",
+          spotlight_name: "Porch Static",
+          message: "Spotlight: Porch Static",
+        }),
+      ]);
+      const cell = container.querySelector("tbody tr.spotlight-row td[colspan]");
+
+      expect(rowClasses(container)).toEqual(["spotlight-row"]);
+      expect(cell).toHaveStyle({ textAlign: "center" });
+      expect(cell!.textContent).toBe("Porch Static live in the studio");
+    });
+
     it("keeps the highlight alongside the row's own class", () => {
       const { container } = renderEntries([entry({ id: 1 })]);
       const { container: marked } = setup({

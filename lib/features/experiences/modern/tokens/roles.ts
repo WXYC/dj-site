@@ -158,12 +158,14 @@ export type EntryRole =
   | "endShow"
   | "talkset"
   | "breakpoint"
+  | "whosOn"
   | "generic";
 export const ENTRY_TONES: Record<EntryRole, Tone> = {
   startShow: { color: "success", variant: "soft" },
   endShow: { color: "primary", variant: "soft" },
   talkset: { color: "danger", variant: "soft" },
   breakpoint: { color: "warning", variant: "soft" },
+  whosOn: { color: "neutral", variant: "soft" },
   generic: { color: "warning", variant: "soft" },
 };
 

@@ -89,7 +89,7 @@ export function v2ToRangeShape(
     // entry in a show, and an arm that fell through would return undefined into
     // an array typed as holding none, which the callers dereference — costing
     // the whole table rather than the one row. Unknown variants therefore
-    // convert as markers, the same as the six above, matching the policy
+    // convert as markers, the same as the seven above, matching the policy
     // `convertRangeEntry` states for the same vocabulary.
     default: {
       const unhandled: never = entry;

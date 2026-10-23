@@ -1,5 +1,6 @@
 import { Rotation } from "../rotation/types";
 import type { FlowsheetEntryType } from "@wxyc/shared/dtos";
+import type { SpotlightRole } from "@wxyc/shared";
 import {
   breakpointMessageForHourLabel,
   formatStationClockTime,
@@ -369,6 +370,8 @@ export type FlowsheetRangeEntryWire = {
   request_flag: boolean;
   dj_name?: string;
   message?: string;
+  spotlight_role?: SpotlightRole;
+  spotlight_name?: string;
   radio_hour?: string | null;
   track_title?: string;
   artist_name?: string;
@@ -600,6 +603,20 @@ export function convertRangeEntry(entry: FlowsheetRangeEntryWire): FlowsheetEntr
 
     case "message":
       return asMessage(entry.message ?? "");
+
+    case "spotlight":
+      return entry.spotlight_role && entry.spotlight_name
+        ? {
+            ...base,
+            spotlight_role: entry.spotlight_role,
+            spotlight_name: entry.spotlight_name,
+            message: whosOnMessage(
+              entry.spotlight_role,
+              entry.spotlight_name,
+              entry.message ?? undefined
+            ),
+          }
+        : asMessage(entry.message ?? "");
 
     default:
       // A row carrying a track title is a play; anything else is text.

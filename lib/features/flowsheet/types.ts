@@ -270,6 +270,12 @@ export function isFlowsheetBreakpointEntry(
   return entry.entry_type === "breakpoint";
 }
 
+export function isFlowsheetSpotlightEntry(
+  entry: FlowsheetEntry
+): entry is FlowsheetSpotlightEntry {
+  return entry.entry_type === "spotlight";
+}
+
 export type OnAirDJResponse = {
   // better-auth user id (string) for account DJs; null for legacy/tubafrenzy
   // shows whose on-air DJ has no Backend-Service account (BS#1547). The banner

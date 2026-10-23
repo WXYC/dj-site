@@ -31,8 +31,10 @@ const isMarker = (entry: FlowsheetRangeEntryWire) =>
 // comes from the entry's absolute position — markers included — rather than
 // from a count of the tracks alone.
 const rowClass = (entry: FlowsheetRangeEntryWire, index: number) => {
-  if (isMarker(entry))
-    return entry.entry_type === "talkset" ? "talkset-row" : "breakpoint-row";
+  if (isMarker(entry)) {
+    if (entry.entry_type === "talkset") return "talkset-row";
+    return entry.entry_type === "spotlight" ? "spotlight-row" : "breakpoint-row";
+  }
   return `entry-row ${index % 2 === 0 ? "entry-row-even" : "entry-row-odd"}`;
 };
 
@@ -142,7 +144,10 @@ export default function ClassicShowEntries({
                     colSpan={MARKER_SPAN}
                     style={{
                       textAlign:
-                        entry.entry_type === "talkset" ? "center" : "left",
+                        entry.entry_type === "talkset" ||
+                        entry.entry_type === "spotlight"
+                          ? "center"
+                          : "left",
                     }}
                   >
                     {describeNonTrackEntry(entry)}

@@ -13,6 +13,7 @@ import {
   isFlowsheetBreakpointEntry,
   isFlowsheetStartShowEntry,
   isFlowsheetEndShowEntry,
+  isFlowsheetSpotlightEntry,
   UpdateRequestBody,
 } from "@/lib/features/flowsheet/types";
 import { flowsheetArtistRejection } from "@/lib/features/flowsheet/various-artists-guard";
@@ -247,6 +248,25 @@ export default function EntryRow({
           {formatShortTime(entry.time)}
         </td>
         <td className="action-cell"></td>
+      </tr>
+    );
+  }
+
+  // Drawn on the live flowsheet too, where a bare message row is left unlisted.
+  if (isFlowsheetSpotlightEntry(entry)) {
+    return (
+      <tr
+        {...anchor}
+        className={rowClasses("flowsheetEntryData", "spotlight-row")}
+      >
+        <EmptyGripCell />
+        {timeCell}
+        <td colSpan={markerSpan} align="center">
+          {messageEntryLabel(entry)}
+        </td>
+        <td className="action-cell">
+          <EntryActionMenu entryId={entry.id} onDelete={onDelete} />
+        </td>
       </tr>
     );
   }

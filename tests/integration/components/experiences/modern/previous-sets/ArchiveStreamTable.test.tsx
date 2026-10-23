@@ -17,6 +17,7 @@ import {
 import {
   isFlowsheetEndShowEntry,
   isFlowsheetSongEntry,
+  isFlowsheetSpotlightEntry,
   isFlowsheetStartShowEntry,
   type FlowsheetEntry,
 } from "@/lib/features/flowsheet/types";
@@ -79,6 +80,8 @@ function contentOf(entry: FlowsheetEntry): string {
   if (isFlowsheetStartShowEntry(entry) || isFlowsheetEndShowEntry(entry)) {
     return entry.dj_name;
   }
+  // The row shows the name and the role wording as two runs of text.
+  if (isFlowsheetSpotlightEntry(entry)) return entry.spotlight_name;
   return entry.message;
 }
 
@@ -95,6 +98,21 @@ describe("ArchiveStreamTable rows", () => {
 
     expect(bodyRows).toHaveLength(1);
     expect(bodyRows[0]).toHaveTextContent(contentOf(row.entry));
+  });
+
+  it("words a who's-on row from its role and name, not the server's message", () => {
+    const row = toArchiveStreamRowFromStreamEntry(
+      V2_ENTRY_FACTORIES_BY_TYPE.spotlight({
+        add_time: ADD_TIME,
+        spotlight_role: "performer",
+        spotlight_name: "Porch Static",
+        message: "Spotlight: Porch Static",
+      }),
+    );
+    const { bodyRows } = renderTable(createTestArchiveStreamListing({ rows: [row] }));
+
+    expect(bodyRows[0]).toHaveTextContent("Porch Staticlive in the studio");
+    expect(bodyRows[0]).not.toHaveTextContent(/spotlight/i);
   });
 
   it("renders no row as playing", () => {
