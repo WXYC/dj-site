@@ -1,7 +1,7 @@
 "use client";
 
 import { FlowsheetSpotlightEntry } from "@/lib/features/flowsheet/types";
-import { whosOnCopy, whosOnRoleText } from "@/lib/features/flowsheet/whos-on-copy";
+import { WHOS_ON_NAME_MAX_LENGTH, whosOnCopy, whosOnRoleText } from "@/lib/features/flowsheet/whos-on-copy";
 import { useEntryActions } from "@/src/hooks/entryActions";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { CheckRounded, EditOutlined } from "@mui/icons-material";
@@ -54,7 +54,10 @@ export default function SpotlightRowBlock({
               }
             }}
             slotProps={{
-              input: { "aria-label": whosOnCopy.nameLabel(entry.spotlight_role) },
+              input: {
+                "aria-label": whosOnCopy.nameLabel(entry.spotlight_role),
+                maxLength: WHOS_ON_NAME_MAX_LENGTH,
+              },
             }}
             sx={{ flex: "1 1 auto" }}
           />
