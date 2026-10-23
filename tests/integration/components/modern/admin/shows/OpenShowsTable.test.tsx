@@ -5,6 +5,7 @@ import { http, HttpResponse } from "msw";
 import OpenShowsTable from "@/src/components/experiences/modern/admin/shows/OpenShowsTable";
 import type { OpenShow } from "@/lib/features/flowsheet/types";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { SEED_CATALOG } from "@/tests/fixtures/specialty";
 
 vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
@@ -224,5 +225,72 @@ describe("OpenShowsTable", () => {
 
     await user.click(screen.getByTestId("open-show-edit-1"));
     expect(await screen.findByRole("textbox", { name: /title/i })).toHaveValue("Late Set");
+  });
+  describe("the program the Edit show details dialog opens on", () => {
+    const [ORANGE_COUNTY] = SEED_CATALOG;
+    const RETIRED = SEED_CATALOG.find((p) => !p.active)!;
+
+    function serveShows(shows: OpenShow[]) {
+      const patched: unknown[] = [];
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/specialty-shows`, () => HttpResponse.json(SEED_CATALOG)),
+        listHandler({ shows, total_in_window: shows.length, older_open_show_count: 0 }),
+        http.patch(`${TEST_BACKEND_URL}/flowsheet/shows/:id`, async ({ request }) => {
+          patched.push(await request.json());
+          return HttpResponse.json({ id: 1 });
+        })
+      );
+      return patched;
+    }
+
+    const openDialog = async (user: ReturnType<typeof renderWithProviders>["user"], id: number) => {
+      await user.click(await screen.findByTestId(`open-show-edit-${id}`));
+      return screen.findByRole("combobox", { name: /program/i });
+    };
+
+    it("preselects the program a tagged show carries", async () => {
+      serveShows([show({ id: 1, show_name: "Sonamos Hour", specialty: ORANGE_COUNTY })]);
+      const { user } = renderWithProviders(<OpenShowsTable />);
+
+      expect(await openDialog(user, 1)).toHaveTextContent(ORANGE_COUNTY.name);
+    });
+
+    it("clears the tag with a single { specialty_id: null } when None is chosen", async () => {
+      const patched = serveShows([show({ id: 1, specialty: ORANGE_COUNTY })]);
+      const { user } = renderWithProviders(<OpenShowsTable />);
+
+      await user.click(await openDialog(user, 1));
+      await user.click(await screen.findByRole("option", { name: "None (freeform)" }));
+      await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+      await waitFor(() => expect(patched).toEqual([{ specialty_id: null }]));
+    });
+
+    it("preselects None for a freeform show and sends only show_name on a title-only save", async () => {
+      const patched = serveShows([show({ id: 1, show_name: "Late Set", specialty: null })]);
+      const { user } = renderWithProviders(<OpenShowsTable />);
+
+      expect(await openDialog(user, 1)).toHaveTextContent("None (freeform)");
+      const input = screen.getByRole("textbox", { name: /title/i });
+      await user.clear(input);
+      await user.type(input, "Later Set");
+      await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+      await waitFor(() => expect(patched).toEqual([{ show_name: "Later Set" }]));
+    });
+
+    it("shows a retired program as the current value", async () => {
+      serveShows([show({ id: 1, specialty: RETIRED })]);
+      const { user } = renderWithProviders(<OpenShowsTable />);
+
+      expect(await openDialog(user, 1)).toHaveTextContent(RETIRED.name);
+    });
+
+    it("opens the dialog on None when the server omits specialty", async () => {
+      serveShows([show({ id: 1, show_name: "Late Set" })]);
+      const { user } = renderWithProviders(<OpenShowsTable />);
+
+      expect(await openDialog(user, 1)).toHaveTextContent("None (freeform)");
+    });
   });
 });
