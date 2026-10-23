@@ -4,7 +4,6 @@ import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { createTestStore } from "@/tests/helpers/store";
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
-import { showPlaylistApi } from "@/lib/features/show-playlist/api";
 import { createTestV2TrackEntry } from "@/tests/fixtures/fixtures";
 import { Authorization } from "@/lib/features/admin/types";
 import {
@@ -80,7 +79,6 @@ const servePlaylist = (body: ReturnType<typeof show>) =>
       return HttpResponse.json(body);
     }),
   );
-
 
 const moveButtons = () => screen.queryAllByRole("button", { name: /^Move (up|down)$/ });
 
