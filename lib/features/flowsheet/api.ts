@@ -27,7 +27,10 @@ import {
   type JoinShowResult,
 } from "./go-live-handoff";
 import { markRefusal } from "../show-playlist/api";
-import { REJECTED_PROGRAM_SENTENCE } from "../specialty/copy";
+import {
+  ONE_TAP_TAG_REFUSED_SENTENCE,
+  REJECTED_PROGRAM_SENTENCE,
+} from "../specialty/copy";
 import { isSpotlightDisabled } from "./whos-on-copy";
 import { classifyForceEndError } from "./force-end-outcome";
 import {
@@ -204,6 +207,12 @@ export const flowsheetApi = createApi({
         method: "POST",
         body: params,
       }),
+      // A refused program tag is worded by the go-live surfaces; marking it
+      // expected keeps the global toast from repeating the server's text.
+      transformErrorResponse: (error, _meta, arg) =>
+        arg.specialty_id === undefined
+          ? error
+          : markRefusal(ONE_TAP_TAG_REFUSED_SENTENCE)(error),
       invalidatesTags: ["NowPlaying", "WhoIsLive"],
       async onQueryStarted(arg, { dispatch, queryFulfilled, getState }) {
         // Seed the banner with the real dj_name so the public /live page never
@@ -286,7 +295,11 @@ export const flowsheetApi = createApi({
             [patchLive, patchEntries, patchNowPlaying],
             // A `show_already_open` 409 is the contract working, not a broken
             // mutation. Rolling back is right; reporting it is not.
-            { expected: readShowAlreadyOpen(err) !== null }
+            {
+              expected:
+                readShowAlreadyOpen(err) !== null ||
+                (err as { error?: { expected?: unknown } }).error?.expected === true,
+            }
           );
         }
       },

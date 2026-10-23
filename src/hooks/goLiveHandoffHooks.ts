@@ -97,6 +97,7 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
     async (intent: JoinIntent) => {
       if (!prompt || deciding) return;
       setDeciding(true);
+      setRefusal(null);
       const outcome = await goLive(
         prompt.djNameOverride,
         {

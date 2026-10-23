@@ -13,6 +13,16 @@ import { TEST_BACKEND_URL, TEST_ENTITY_IDS } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
 import { createTestStore } from "@/tests/helpers/store";
 
+const { toastError, captureException } = vi.hoisted(() => ({
+  toastError: vi.fn(),
+  captureException: vi.fn(),
+}));
+vi.mock("sonner", () => ({ toast: { error: toastError, success: vi.fn() } }));
+vi.mock("@/lib/error-reporting", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/error-reporting")>()),
+  safeCaptureException: captureException,
+}));
+
 // Mock the auth client so the base query's prepareHeaders doesn't try to fetch
 // a JWT (no auth server running). Mirrors addToFlowsheet.wiring.test.ts.
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -414,6 +424,40 @@ describe("joinShow handoff decision on the wire", () => {
     expect(
       selectWhoIsLiveCache(store)?.djs.some((d) => d.id === "test-user-1")
     ).toBe(false);
+  });
+
+  // The refused tag is worded by the go-live surfaces, so the global handler
+  // repeating the server's text would put both on screen.
+  it.each([
+    ["a tagged 400 stays silent", { specialty_id: 10 }, 0],
+    ["an untagged 400 still toasts", {}, 1],
+  ])("%s", async (_name, tag, toasts) => {
+    toastError.mockClear();
+    captureException.mockClear();
+    const store = await seedStore();
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/flowsheet/join`, () =>
+        HttpResponse.json(
+          { message: "Bad Request: specialty_id is unknown or names a retired specialty show" },
+          { status: 400 }
+        )
+      )
+    );
+
+    await expect(
+      store
+        .dispatch(
+          flowsheetApi.endpoints.joinShow.initiate({
+            dj_id: "test-user-1",
+            dj_name: "Test DJ",
+            ...tag,
+          })
+        )
+        .unwrap()
+    ).rejects.toBeTruthy();
+
+    expect(toastError).toHaveBeenCalledTimes(toasts);
+    expect(captureException).toHaveBeenCalledTimes(toasts);
   });
 
   // The refusal is the contract working. Logging it as a broken mutation
