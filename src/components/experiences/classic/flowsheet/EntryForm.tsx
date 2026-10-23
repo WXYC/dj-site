@@ -22,8 +22,11 @@ import {
   stationBreakpointMessage,
 } from "@/src/utilities/stationTime";
 import { useCurrentBreakpointHours } from "@/src/hooks/flowsheetHooks";
+import { useWhosOn } from "@/src/hooks/whosOnHooks";
+import { WHOS_ON_ROLES, whosOnCopy } from "@/lib/features/flowsheet/whos-on-copy";
+import type { SpotlightRole } from "@wxyc/shared";
 
-type EntryType = "track" | "talkset" | "breakpoint";
+type EntryType = "track" | "talkset" | "breakpoint" | SpotlightRole;
 type ReleaseType = "rotationRelease" | "libraryRelease" | "otherRelease";
 type RotationType = "heavy" | "medium" | "light" | "singles";
 
@@ -36,6 +39,8 @@ export default function EntryForm({
 }) {
   const dispatch = useAppDispatch();
   const [addToFlowsheet, { isLoading }] = useAddToFlowsheetMutation();
+  const whosOn = useWhosOn();
+  const [whosOnName, setWhosOnName] = useState("");
 
   const [entryType, setEntryType] = useState<EntryType>("track");
   // Defaults to WXYC Library: DJs pull from the library far more often than
@@ -147,11 +152,26 @@ export default function EntryForm({
       ? selectedRotationId > 0 &&
         (!rotationCannotSupplyArtist || artistName.trim().length > 0)
       : artistName.trim().length > 0);
-  const canSubmit = entryType === "track" ? canSubmitTrack : true;
+  const whosOnRole = WHOS_ON_ROLES.find((r) => r.role === entryType)?.role;
+  const canSubmit =
+    entryType === "track"
+      ? canSubmitTrack
+      : whosOnRole
+        ? whosOnName.trim().length > 0
+        : true;
 
   const handleSubmit = async (e?: FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     if (!canSubmit) return;
+
+    if (whosOnRole) {
+      if (await whosOn.add(whosOnRole, whosOnName)) {
+        setWhosOnName("");
+        setEntryType("track");
+        onSuccess?.();
+      }
+      return;
+    }
 
     let submissionData: Parameters<typeof addToFlowsheet>[0];
 
@@ -281,11 +301,18 @@ export default function EntryForm({
               // screen under Track or Talkset, still naming an hour that may
               // no longer be the one in conflict.
               setBreakpointRejection(null);
+              whosOn.clearRefusal();
             }}
             disabled={!isLive}
           >
             <option value="track">Track</option>
             <option value="talkset">Talkset</option>
+            {whosOn.available &&
+              WHOS_ON_ROLES.map((r) => (
+                <option key={r.role} value={r.role}>
+                  {r.menu}
+                </option>
+              ))}
             {/* Renders the exact string the submit path writes, rather than
                 re-joining an hour label with the suffix, so the option cannot
                 name an hour it will not log. */}
@@ -297,7 +324,7 @@ export default function EntryForm({
               <input
                 type="submit"
                 value="Add"
-                disabled={!isLive || isLoading || !canSubmit}
+                disabled={!isLive || isLoading || whosOn.isLoading || !canSubmit}
                 aria-describedby={
                   breakpointRejection ? "breakpointGuardError" : undefined
                 }
@@ -318,7 +345,30 @@ export default function EntryForm({
               {breakpointRejection}
             </div>
           )}
+          {whosOn.refusal && (
+            <div role="alert" className="validation-message visible">
+              {whosOn.refusal}
+            </div>
+          )}
         </div>
+
+        {whosOnRole && (
+          <div style={{ textAlign: "center", margin: "8px 0" }}>
+            <label className="label" htmlFor="whosOnName">
+              {whosOnCopy.nameLabel(whosOnRole)}{" "}
+            </label>
+            <input
+              type="text"
+              autoCorrect="off"
+              id="whosOnName"
+              name="whosOnName"
+              value={whosOnName}
+              onChange={(e) => setWhosOnName(e.target.value)}
+              disabled={!isLive}
+            />
+            <div className="field-hint">{whosOnCopy.publicNotice(whosOnRole)}</div>
+          </div>
+        )}
 
         {entryType === "track" && (
           <>
