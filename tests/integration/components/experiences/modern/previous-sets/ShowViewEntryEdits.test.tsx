@@ -166,6 +166,25 @@ describe("ShowView entry editing", () => {
     expect(await screen.findByTestId("flowsheet-remove-3003")).toBeInTheDocument();
   });
 
+  it.each([
+    ["music director", Authorization.MD, true],
+    ["station manager", Authorization.SM, true],
+    ["DJ", Authorization.DJ, false],
+  ])(
+    "an open show's rows for a %s who is not on it: controls %s",
+    async (_role, authority, offered) => {
+      mockAuth.authority = authority;
+      servePlaylist(
+        show({ end_time: null, show_djs: [{ id: "dj-other", dj_name: "Other" }] }),
+      );
+      renderWithProviders(<ShowView showId={SHOW_ID} />);
+
+      await screen.findAllByText("la paradoja");
+      expect(screen.queryByTestId("flowsheet-remove-3001") !== null).toBe(offered);
+      expect(screen.queryAllByLabelText("Edit song").length > 0).toBe(offered);
+    },
+  );
+
   it("offers a DJ on the show its rows while it is on the air", async () => {
     mockAuth.authority = Authorization.DJ;
     servePlaylist(show({ end_time: null, show_djs: [{ id: "dj-me", dj_name: "Me" }] }));

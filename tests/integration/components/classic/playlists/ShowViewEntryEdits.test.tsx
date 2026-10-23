@@ -98,7 +98,8 @@ describe("classic ShowView entry editing", () => {
     ["station manager", Authorization.SM, ended, true],
     ["DJ", Authorization.DJ, ended, false],
     ["DJ on the show", Authorization.DJ, onAir, true],
-    ["music director not on the show", Authorization.MD, show({ end_time: null }), false],
+    ["DJ not on the show", Authorization.DJ, show({ end_time: null }), false],
+    ["music director not on the show", Authorization.MD, show({ end_time: null }), true],
   ])(
     "offers a %s edit, delete and reorder controls: %s",
     async (_role, authority, body, offered) => {

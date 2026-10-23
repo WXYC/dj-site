@@ -179,8 +179,8 @@ export function useScrollToShowEntry(
 /**
  * Whether the signed-in account may change this show's rows. The server is the
  * authority and refuses the rest; this only decides whether to offer controls.
- * An ended show is a record, so only music directors and station managers edit
- * it; while the show is on the air any DJ on it can.
+ * Music directors and station managers edit any show, open or ended; a DJ can
+ * edit only a show that is on the air and that they are on.
  */
 export function useCanEditShowRows(show: Pick<ShowPlaylist, "ended" | "djIds">): boolean {
   const { data: auth } = useAuthentication();
@@ -188,9 +188,10 @@ export function useCanEditShowRows(show: Pick<ShowPlaylist, "ended" | "djIds">):
   if (!user) {
     return false;
   }
-  return show.ended
-    ? user.authority >= Authorization.MD
-    : show.djIds.includes(String(user.id));
+  return (
+    user.authority >= Authorization.MD ||
+    (!show.ended && show.djIds.includes(String(user.id)))
+  );
 }
 
 /**
