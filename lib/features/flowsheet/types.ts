@@ -314,7 +314,10 @@ export type UpdateRequestBody = Partial<
     keyof Omit<FlowsheetSongBase, "album_id" | "rotation_id" | "rotation">,
     string | boolean
   >
->;
+> & {
+  /** A who's-on row's name; the only field a who's-on row edits. */
+  spotlight_name?: string;
+};
 
 /** Replaces Date fields with string for JSON boundary */
 type JSONDates<T> = {

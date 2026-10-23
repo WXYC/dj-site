@@ -55,6 +55,16 @@ vi.mock("@/src/components/experiences/modern/flowsheet/Entries/Components/DateTi
   ),
 }));
 
+// The who's-on row's editor reads the live status and the entry actions.
+vi.mock("@/src/hooks/flowsheetHooks", () => ({
+  useLiveStatus: () => ({ live: true }),
+  useFlowsheetActions: () => ({
+    updateFlowsheet: vi.fn(),
+    removeFromFlowsheet: vi.fn(),
+    switchEntries: vi.fn(),
+  }),
+}));
+
 describe("Entry", () => {
   beforeEach(() => {
     vi.clearAllMocks();
