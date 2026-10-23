@@ -395,7 +395,9 @@ describe("AddReleasePanel", () => {
       expect(
         screen.getByText("Album artist must be 128 characters or fewer."),
       ).toBeInTheDocument();
-      await user.click(screen.getByRole("button", { name: "Save Release" }));
+      expect(screen.getByRole("button", { name: "Save Release" })).toBeDisabled();
+      await user.click(screen.getByLabelText(/Album artist/));
+      await user.keyboard("{Enter}");
 
       expect(getReceivedBody()).toBeUndefined();
     });
@@ -421,7 +423,15 @@ describe("AddReleasePanel", () => {
         setFieldValue(screen.getByLabelText(/Album artist/), albumArtist);
 
         const error = screen.queryByText("Album artist must be 128 characters or fewer.");
-        await user.click(screen.getByRole("button", { name: "Save Release" }));
+        const saveButton = screen.getByRole("button", { name: "Save Release" });
+        if (accepted) {
+          expect(saveButton).toBeEnabled();
+          await user.click(saveButton);
+        } else {
+          expect(saveButton).toBeDisabled();
+          await user.click(screen.getByLabelText(/Album artist/));
+          await user.keyboard("{Enter}");
+        }
 
         if (accepted) {
           expect(error).not.toBeInTheDocument();
