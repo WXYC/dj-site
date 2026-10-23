@@ -62,6 +62,7 @@ export default function SetTags() {
           showId={show.id}
           specialty={show.specialty}
           showName={show.show_name}
+          startTime={show.start_time}
           onClose={() => setEditing(false)}
         />
       )}

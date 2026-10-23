@@ -398,7 +398,7 @@ describe("SpecialtyQuestion", () => {
   });
 
   it("keeps 'Spotlight' and 'dj-site' out of every string the question shows", () => {
-    const { askOne, askShared, yes, tagged, goLiveAs, signOnAs, ...fixed } = specialtyCopy;
+    const { askOne, askShared, yes, tagged, slotHint, goLiveAs, signOnAs, ...fixed } = specialtyCopy;
     const program = { name: "A", short_name: "A" };
     const strings = [
       goLiveAs(program),
@@ -407,6 +407,7 @@ describe("SpecialtyQuestion", () => {
       askShared("Sunday at noon", ["A", "B"]),
       yes("A"),
       tagged("A"),
+      slotHint("A"),
       ...Object.values(fixed),
       REJECTED_PROGRAM_SENTENCE,
     ];

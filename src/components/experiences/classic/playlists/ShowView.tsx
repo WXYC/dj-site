@@ -110,6 +110,7 @@ export default function ShowView({
           showId={showId}
           specialty={show.specialty}
           showName={show.showName}
+          startTime={show.startTime}
           onClose={() => setEditing(false)}
         />
       )}

@@ -50,6 +50,7 @@ export const specialtyCopy = {
   yes: (name: string) => `Yes, it's ${name}`,
   notThisTime: "Not this time",
   tagged: (name: string) => `The DJ site will show this set as ${name}.`,
+  slotHint: (name: string) => `This time slot usually airs ${name}.`,
   titleLabel: "Title for this week",
   editDetailsTitle: "Edit show details",
   editDetails: "Edit show details",

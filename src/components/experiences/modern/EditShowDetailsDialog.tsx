@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Button,
   FormControl,
+  FormHelperText,
   FormLabel,
   Input,
   Option,
@@ -15,6 +16,7 @@ import type { SpecialtyShowRef } from "@wxyc/shared";
 import { useUpdateShowMutation } from "@/lib/features/flowsheet/api";
 import { useGetSpecialtyShowsQuery } from "@/lib/features/specialty/api";
 import { specialtyCopy } from "@/lib/features/specialty/copy";
+import { programsForStart } from "@/lib/features/specialty/slot-match";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
 
 const NONE = "none";
@@ -30,12 +32,15 @@ export default function EditShowDetailsDialog({
   showId,
   specialty,
   showName,
+  startTime,
   onClose,
 }: {
   showId: number;
   /** The show's current program; null when it is freeform or not known. */
   specialty: Pick<SpecialtyShowRef, "id" | "name"> | null | undefined;
   showName: string | null | undefined;
+  /** ISO-8601 instant the show began, for naming the program that usually airs then. */
+  startTime: string;
   onClose: () => void;
 }) {
   const { data: catalog = [] } = useGetSpecialtyShowsQuery();
@@ -48,6 +53,10 @@ export default function EditShowDetailsDialog({
   // the select can show it and the DJ can clear it.
   const programs = catalog.filter((p) => p.active || p.id === specialty?.id);
   const current = specialty && !programs.some((p) => p.id === specialty.id) ? specialty : null;
+
+  // A suggestion only: it never touches `choice` or the save body.
+  const slotProgram = programsForStart(startTime, catalog)[0]?.program;
+  const hint = slotProgram && slotProgram.id !== specialty?.id ? slotProgram.name : null;
 
   const save = async () => {
     const body: { specialty_id?: number | null; show_name?: string | null } = {};
@@ -103,6 +112,7 @@ export default function EditShowDetailsDialog({
               </Option>
             ))}
           </Select>
+          {hint && <FormHelperText>{specialtyCopy.slotHint(hint)}</FormHelperText>}
         </FormControl>
         <FormControl>
           <FormLabel>{specialtyCopy.titleLabel}</FormLabel>

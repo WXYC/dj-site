@@ -153,6 +153,7 @@ export default function OpenShowsTable() {
           showId={editTarget.id}
           specialty={editTarget.specialty}
           showName={editTarget.show_name}
+          startTime={editTarget.start_time}
           onClose={() => setEditTarget(null)}
         />
       ) : null}
