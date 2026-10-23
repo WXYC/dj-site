@@ -85,6 +85,11 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     expect(input.disabled).toBe(false);
   });
 
+  it("caps the Public DJ Handle at 255 characters", () => {
+    renderWithProviders(<StartShow />);
+    expect(getNamedInput("djHandle").maxLength).toBe(255);
+  });
+
   it("initializes the Public DJ Handle with the registry's dj_name", () => {
     renderWithProviders(<StartShow />);
     const input = getNamedInput("djHandle");

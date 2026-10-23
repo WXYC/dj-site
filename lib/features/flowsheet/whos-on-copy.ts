@@ -58,12 +58,3 @@ export const whosOnCopy = {
   logSong: "Log a song",
   disabled: "Who's on air isn't turned on yet.",
 };
-
-/** The server's 403 while who's-on rows are switched off; told apart by its `code`, never its text. */
-export function isSpotlightDisabled(error: unknown): boolean {
-  const { status, data } = (error ?? {}) as { status?: unknown; data?: unknown };
-  return (
-    status === 403 &&
-    (data as { code?: unknown } | null | undefined)?.code === "spotlight_disabled"
-  );
-}

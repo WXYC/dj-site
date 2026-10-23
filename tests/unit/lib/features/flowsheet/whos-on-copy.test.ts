@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   WHOS_ON_ROLES,
-  isSpotlightDisabled,
   whosOnCopy,
   whosOnMessage,
 } from "@/lib/features/flowsheet/whos-on-copy";
@@ -59,15 +58,5 @@ describe("whos-on copy", () => {
     expect(whosOnCopy.publicNotice("performer")).toBe(
       "This name shows in the listener apps."
     );
-  });
-
-  it.each([
-    [{ status: 403, data: { code: "spotlight_disabled" } }, true],
-    [{ status: 403, data: { code: "closed_show" } }, false],
-    [{ status: 400, data: { code: "spotlight_disabled" } }, false],
-    [{ status: 403 }, false],
-    [undefined, false],
-  ])("recognises a spotlight_disabled refusal: %j -> %s", (error, expected) => {
-    expect(isSpotlightDisabled(error)).toBe(expected);
   });
 });

@@ -7,7 +7,12 @@ import {
   NOT_ON_SHOW_SENTENCE,
   refusalSentence,
 } from "@/lib/features/show-playlist/api";
-import { REJECTED_PROGRAM_SENTENCE } from "@/lib/features/specialty/copy";
+import {
+  ONE_TAP_TAG_REFUSED_SENTENCE,
+  REJECTED_PROGRAM_SENTENCE,
+  SHOW_DETAILS_REFUSED_SENTENCE,
+} from "@/lib/features/specialty/copy";
+import { whosOnCopy } from "@/lib/features/flowsheet/whos-on-copy";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
 import { createTestStore } from "@/tests/helpers/store";
@@ -92,23 +97,70 @@ describe("getCurrentShow", () => {
 
 describe("updateShow refusals", () => {
   it.each([
-    ["a 400", 400, { message: "Unknown program" }, REJECTED_PROGRAM_SENTENCE, true],
-    ["a closed_show 403", 403, { code: "closed_show", message: "Show closed" }, CLOSED_SHOW_SENTENCE, true],
-    ["a 403 without a code", 403, { error: "forbidden" }, null, false],
-    ["a ban 403", 403, { message: "Banned", reason: "x" }, null, false],
-    ["a 401", 401, { message: "Unauthorized" }, null, false],
-  ])("%s", async (_name, status, body, sentence, expected) => {
+    ["a 400 for a program tag", { specialty_id: 4 }, 400, { message: "Unknown program" }, REJECTED_PROGRAM_SENTENCE, true],
+    ["a 400 for a cleared program tag", { specialty_id: null }, 400, { message: "x" }, REJECTED_PROGRAM_SENTENCE, true],
+    ["a 400 for a title only", { show_name: "x" }, 400, { message: "Bad show_name" }, SHOW_DETAILS_REFUSED_SENTENCE, true],
+    ["a closed_show 403", { show_name: "x" }, 403, { code: "closed_show", message: "Show closed" }, CLOSED_SHOW_SENTENCE, true],
+    ["a 403 without a code", { show_name: "x" }, 403, { error: "forbidden" }, null, false],
+    ["a ban 403", { show_name: "x" }, 403, { message: "Banned", reason: "x" }, null, false],
+    ["a 401", { show_name: "x" }, 401, { message: "Unauthorized" }, null, false],
+  ])("%s", async (_name, args, status, body, sentence, expected) => {
     server.use(
       http.patch(`${TEST_BACKEND_URL}/flowsheet/shows/91`, () =>
         HttpResponse.json(body, { status })
       )
     );
     const result = await createTestStore().dispatch(
-      flowsheetApi.endpoints.updateShow.initiate({ showId: 91, show_name: "x" })
+      flowsheetApi.endpoints.updateShow.initiate({ showId: 91, ...args })
     );
-    const error = result.error as { expected?: boolean; sentence?: string; status: number; data: unknown };
+    const error = result.error as { expected?: boolean; sentence?: string };
     expect(error.sentence ?? null).toBe(sentence);
     expect(error.expected === true).toBe(expected);
+  });
+});
+
+describe("addToFlowsheet refusals", () => {
+  it.each([
+    ["a spotlight_disabled 403", 403, { code: "spotlight_disabled" }, whosOnCopy.disabled],
+    ["a closed_show 403", 403, { code: "closed_show" }, CLOSED_SHOW_SENTENCE],
+    ["a 403 without a code", 403, { error: "forbidden" }, null],
+    ["a 400", 400, { message: "Bad track" }, null],
+  ])("%s", async (_name, status, body, sentence) => {
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/flowsheet`, () =>
+        HttpResponse.json(body, { status })
+      )
+    );
+    const result = await createTestStore().dispatch(
+      flowsheetApi.endpoints.addToFlowsheet.initiate({
+        entry_type: "spotlight",
+        spotlight_role: "dj",
+        spotlight_name: "x",
+      } as never)
+    );
+    const error = result.error as { expected?: boolean; sentence?: string };
+    expect(error.sentence ?? null).toBe(sentence);
+    expect(error.expected === true).toBe(sentence !== null);
+  });
+});
+
+describe("joinShow refusals", () => {
+  it.each([
+    ["a tagged 400", { specialty_id: 4 }, ONE_TAP_TAG_REFUSED_SENTENCE],
+    ["an untagged 400", {}, null],
+    ["a title-only 400", { show_name: "x" }, null],
+  ])("%s", async (_name, tag, sentence) => {
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/flowsheet/join`, () =>
+        HttpResponse.json({ message: "no" }, { status: 400 })
+      )
+    );
+    const result = await createTestStore().dispatch(
+      flowsheetApi.endpoints.joinShow.initiate({ dj_id: "d", ...tag } as never)
+    );
+    const error = result.error as { expected?: boolean; sentence?: string };
+    expect(error.sentence ?? null).toBe(sentence);
+    expect(error.expected === true).toBe(sentence !== null);
   });
 });
 
@@ -127,5 +179,15 @@ describe("refusalSentence", () => {
         expected === "badRequest sentence" ? badRequest : expected
       );
     }
+  });
+
+  it("leaves a 400 to general handling without a sentence, and words extra codes", () => {
+    expect(refusalSentence({ status: 400 })).toBeNull();
+    expect(
+      refusalSentence({ status: 403, data: { code: "x" } }, undefined, { x: "ex" })
+    ).toBe("ex");
+    expect(
+      refusalSentence({ status: 400, data: { code: "x" } }, undefined, { x: "ex" })
+    ).toBeNull();
   });
 });

@@ -30,8 +30,9 @@ import { markRefusal } from "../show-playlist/api";
 import {
   ONE_TAP_TAG_REFUSED_SENTENCE,
   REJECTED_PROGRAM_SENTENCE,
+  SHOW_DETAILS_REFUSED_SENTENCE,
 } from "../specialty/copy";
-import { isSpotlightDisabled, whosOnMessage } from "./whos-on-copy";
+import { whosOnCopy, whosOnMessage } from "./whos-on-copy";
 import { classifyForceEndError } from "./force-end-outcome";
 import {
   CurrentShow,
@@ -147,7 +148,12 @@ export const flowsheetApi = createApi({
       }),
       // A refusal the caller words itself is marked expected so the global
       // toast stays quiet instead of repeating it in the server's words.
-      transformErrorResponse: markRefusal(REJECTED_PROGRAM_SENTENCE),
+      transformErrorResponse: markRefusal({
+        badRequest: ({ specialty_id }) =>
+          specialty_id === undefined
+            ? SHOW_DETAILS_REFUSED_SENTENCE
+            : REJECTED_PROGRAM_SENTENCE,
+      }),
       invalidatesTags: ["Flowsheet"],
     }),
     switchEntries: builder.mutation<undefined, FlowsheetSwitchParams>({
@@ -211,10 +217,10 @@ export const flowsheetApi = createApi({
       }),
       // A refused program tag is worded by the go-live surfaces; marking it
       // expected keeps the global toast from repeating the server's text.
-      transformErrorResponse: (error, _meta, arg) =>
-        arg.specialty_id === undefined
-          ? error
-          : markRefusal(ONE_TAP_TAG_REFUSED_SENTENCE)(error),
+      transformErrorResponse: markRefusal({
+        badRequest: (arg) =>
+          arg.specialty_id === undefined ? undefined : ONE_TAP_TAG_REFUSED_SENTENCE,
+      }),
       invalidatesTags: ["NowPlaying", "WhoIsLive"],
       async onQueryStarted(arg, { dispatch, queryFulfilled, getState }) {
         // Seed the banner with the real dj_name so the public /live page never
@@ -411,8 +417,9 @@ export const flowsheetApi = createApi({
           convertV2Entry(response),
         // The who's-on control words this refusal itself, so the global toast
         // stays quiet instead of repeating it in the server's words.
-        transformErrorResponse: (error) =>
-          isSpotlightDisabled(error) ? { ...error, expected: true } : error,
+        transformErrorResponse: markRefusal({
+          codes: { spotlight_disabled: whosOnCopy.disabled },
+        }),
         invalidatesTags: ["NowPlaying"],
         async onQueryStarted(arg, { dispatch, queryFulfilled, getState }) {
           const root = getState() as {

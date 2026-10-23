@@ -30,6 +30,9 @@ export function withStartAs(sentence: string, program?: string): string {
 export const REJECTED_PROGRAM_SENTENCE =
   "The DJ site couldn't tag this show with that program. It may have been retired. Try again, or carry on without a tag.";
 
+export const SHOW_DETAILS_REFUSED_SENTENCE =
+  "The DJ site couldn't save this show's details. Try again.";
+
 /** A one-tap press whose program the server would not tag: nothing opened, so say what still works. */
 export const ONE_TAP_TAG_REFUSED_SENTENCE =
   "The DJ site couldn't open the show as that program. It may have been retired. Going live the usual way still works.";
