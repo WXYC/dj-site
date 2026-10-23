@@ -51,6 +51,12 @@ export const specialtyCopy = {
   notThisTime: "Not this time",
   tagged: (name: string) => `The DJ site will show this set as ${name}.`,
   titleLabel: "Title for this week",
+  editDetailsTitle: "Edit show details",
+  editDetails: "Edit show details",
+  programLabel: "Program",
+  noneFreeform: "None (freeform)",
+  save: "Save",
+  cancel: "Cancel",
   done: "Done",
   freeform: "Freeform",
 };

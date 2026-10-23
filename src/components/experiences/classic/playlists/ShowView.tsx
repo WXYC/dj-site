@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   useCanEditShowRows,
@@ -9,6 +10,8 @@ import {
 } from "@/src/hooks/showPlaylistHooks";
 import { EntryActionsProvider } from "@/src/hooks/entryActions";
 import ClassicShowEntries from "@/src/components/experiences/classic/schedule-week/ClassicShowEntries";
+import EditShowDetailsDialog from "@/src/components/experiences/modern/EditShowDetailsDialog";
+import { specialtyCopy } from "@/lib/features/specialty/copy";
 import { hrefForShow } from "@/lib/features/schedule-week/showUrl";
 import "@/src/styles/classic/wxyc.css";
 import "@/src/styles/classic/schedule-week.css";
@@ -39,6 +42,7 @@ export default function ShowView({
   const show = useShowPlaylist(showId);
   const canEdit = useCanEditShowRows(show);
   const actions = usePastShowEntryActions(showId);
+  const [editing, setEditing] = useState(false);
 
   useScrollToShowEntry(highlightedEntryId, show.entries.length);
 
@@ -88,10 +92,27 @@ export default function ShowView({
             </th>
             <th style={{ width: "40%", textAlign: "left" }} className="redlabel">
               {show.djName ? `Disc Jockey: ${show.djName}` : null}
+              {canEdit && (
+                <>
+                  <br />
+                  <button type="button" onClick={() => setEditing(true)}>
+                    {specialtyCopy.editDetails}
+                  </button>
+                </>
+              )}
             </th>
           </tr>
         </tbody>
       </table>
+
+      {editing && (
+        <EditShowDetailsDialog
+          showId={showId}
+          specialty={show.specialty}
+          showName={show.showName}
+          onClose={() => setEditing(false)}
+        />
+      )}
 
       <EntryActionsProvider value={actions}>
       <ClassicShowEntries

@@ -10,7 +10,7 @@ import type {
   FlowsheetV2SpotlightEntry,
   FlowsheetEntryType,
 } from "@wxyc/shared/dtos";
-import type { FlowsheetRangeShow, SpotlightRole } from "@wxyc/shared";
+import type { FlowsheetRangeShow, SpecialtyShowRef, SpotlightRole } from "@wxyc/shared";
 import { Rotation } from "../rotation/types";
 
 export type FlowsheetFrontendState = {
@@ -388,6 +388,8 @@ export type OpenShow = {
   /** Resolved through the shared name chain; null for an unresolvable legacy DJ. */
   dj_name: string | null;
   show_name: string | null;
+  /** The program tag, when the server reports it; absent reads as untagged. */
+  specialty?: SpecialtyShowRef | null;
   /** ISO-8601. */
   start_time: string;
   legacy_show_id: number | null;
