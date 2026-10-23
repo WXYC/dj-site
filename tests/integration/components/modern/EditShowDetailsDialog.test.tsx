@@ -103,6 +103,11 @@ describe("EditShowDetailsDialog", () => {
     expect(await programSelect()).toHaveTextContent(ORANGE_COUNTY.name);
   });
 
+  it("opens on None, without crashing, when the server sent no specialty", async () => {
+    renderDialog({ specialty: undefined });
+    expect(await programSelect()).toHaveTextContent("None (freeform)");
+  });
+
   it("shows a retired current tag as the value, and lets it be cleared", async () => {
     const bodies = serveSave();
     renderDialog({ specialty: RETIRED });
