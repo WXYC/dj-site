@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import RequestLineControl from "@/src/components/experiences/modern/RequestLineControl";
 import EditShowDetailsDialog from "@/src/components/experiences/modern/EditShowDetailsDialog";
@@ -89,6 +89,74 @@ describe("RequestLineControl explanation", () => {
 
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  });
+});
+
+describe("RequestLineControl descriptions", () => {
+  it.each([
+    ["requests", "Listeners can ask for songs and send notes."],
+    ["feedback", "Listeners can send notes, with no song lookup."],
+    ["closed", "Listeners can send nothing, and the Request button is hidden."],
+  ])("describes %s as the selected choice, and in the list", async (mode, sentence) => {
+    expect(requestLineCopy.descriptions[mode as keyof typeof requestLineCopy.descriptions]).toBe(
+      sentence
+    );
+    serve({ mode, source: "default" });
+    const { user } = renderWithProviders(<RequestLineControl showId={SHOW_ID} />);
+
+    const combobox = await select();
+    const helper = (await screen.findAllByText(sentence)).find((el) => !el.closest("[role=option]"));
+    expect(helper).toBeVisible();
+    expect(combobox).toHaveAccessibleDescription(sentence);
+
+    await user.click(combobox);
+    const listbox = await screen.findByRole("listbox");
+    for (const [value, description] of Object.entries(requestLineCopy.descriptions)) {
+      const option = within(listbox).getByRole("option", {
+        name: requestLineCopy.modes[value as keyof typeof requestLineCopy.modes],
+      });
+      expect(option).toHaveAccessibleDescription(description);
+      expect(within(option).getByText(description)).toBeInTheDocument();
+    }
+  });
+
+  it("describes an unknown mode as Requests", async () => {
+    serve({ mode: "sideways", source: "default" });
+    renderWithProviders(<RequestLineControl showId={SHOW_ID} />);
+
+    expect(await select()).toHaveAccessibleDescription(requestLineCopy.descriptions.requests);
+  });
+});
+
+describe("request-line wording", () => {
+  const strings = (value: unknown): string[] => {
+    if (typeof value === "string") {
+      return [value];
+    }
+    if (typeof value === "function") {
+      return [undefined, null, "performer", "reader"].flatMap((role) =>
+        strings((value as (role: unknown) => unknown)(role))
+      );
+    }
+    return value && typeof value === "object" ? Object.values(value).flatMap(strings) : [];
+  };
+
+  it("never says spotlight to a DJ", () => {
+    const all = strings(requestLineCopy);
+    expect(all.length).toBeGreaterThan(8);
+    expect(all.filter((text) => /spotlight/i.test(text))).toEqual([]);
+  });
+
+  it("closes for a guest in plain words", () => {
+    expect(requestLineCopy.spotlightClosed(undefined)).toBe("Closed while a guest is on.");
+  });
+
+  it("renders no spotlight text for a spotlight source", async () => {
+    serve({ mode: "closed", source: "spotlight" });
+    const { container } = renderWithProviders(<RequestLineControl showId={SHOW_ID} />);
+
+    await screen.findByText(requestLineCopy.spotlightClosed(undefined));
+    expect(container.textContent).not.toMatch(/spotlight/i);
   });
 });
 

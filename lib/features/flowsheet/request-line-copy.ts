@@ -12,6 +12,12 @@ export const requestLineCopy = {
     feedback: "Messages only",
     closed: "Closed",
   } satisfies Record<RequestLineMode, string>,
+  // What listeners can do under each choice, shown beside it and as the selected choice's helper text.
+  descriptions: {
+    requests: "Listeners can ask for songs and send notes.",
+    feedback: "Listeners can send notes, with no song lookup.",
+    closed: "Listeners can send nothing, and the Request button is hidden.",
+  } satisfies Record<RequestLineMode, string>,
   backToUsual: "Back to the usual",
   messagesConfirmed: "Listeners' button now reads Message.",
   // The hint under a source the DJ did not choose; the default source stays quiet.
@@ -26,7 +32,7 @@ export const requestLineCopy = {
     if (role === "reader") {
       return "Closed while a reader is on.";
     }
-    return "Closed while someone is in the spotlight.";
+    return "Closed while a guest is on.";
   },
 };
 
