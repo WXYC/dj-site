@@ -616,6 +616,32 @@ describe("classic NewArtistForm — the peeked next code fills the field", () =>
   });
 });
 
+describe("classic NewArtistForm — a peek-code outage", () => {
+  beforeEach(() => {
+    mockGenres();
+  });
+
+  it("names a non-JSON peek failure beside the call numbers instead of an ellipsis", async () => {
+    server.use(
+      http.get(
+        `${TEST_BACKEND_URL}/library/artists/peek-code`,
+        () =>
+          new HttpResponse("<!DOCTYPE html><html><body>Bad Gateway</body></html>", {
+            status: 502,
+            headers: { "Content-Type": "text/html" },
+          }),
+      ),
+    );
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/call letters/i), "MO");
+
+    expect(await screen.findByText(/Unable to preview code/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/call numbers/i)).toHaveValue("");
+  });
+});
+
 /**
  * A field the form fills in needs a working story for overriding it. The
  * gesture a librarian has is the one any pre-filled box invites: click in and
