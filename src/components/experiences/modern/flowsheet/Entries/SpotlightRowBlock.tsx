@@ -16,8 +16,11 @@ import { ENTRY_TONES } from "@/lib/features/experiences/modern/tokens/roles";
  */
 export default function SpotlightRowBlock({
   entry,
+  compact = false,
 }: {
   entry: FlowsheetSpotlightEntry;
+  // Sizes the name to the stacked mobile card's body-sm text.
+  compact?: boolean;
 }) {
   const { live, currentShow } = useShowControl();
   const { updateFlowsheet, pastShow } = useEntryActions();
@@ -86,11 +89,15 @@ export default function SpotlightRowBlock({
 
   return (
     <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap">
-      <Typography level="body-lg" color={ENTRY_TONES.whosOn.color}>
+      <Typography level={compact ? "body-sm" : "body-lg"} color={ENTRY_TONES.whosOn.color}>
         {entry.spotlight_name}
       </Typography>
       {caption && (
-        <Typography textColor="text.tertiary" sx={{ alignSelf: "center" }}>
+        <Typography
+          level={compact ? "body-sm" : undefined}
+          textColor="text.tertiary"
+          sx={{ alignSelf: "center" }}
+        >
           {caption}
         </Typography>
       )}

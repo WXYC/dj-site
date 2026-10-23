@@ -3,6 +3,7 @@
 import {
   FlowsheetEntry,
   isFlowsheetSongEntry,
+  isFlowsheetSpotlightEntry,
 } from "@/lib/features/flowsheet/types";
 import { useEntryActions } from "@/src/hooks/entryActions";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
@@ -12,6 +13,7 @@ import DateTimeStack from "./Components/DateTimeStack";
 import RemoveButton from "./Components/RemoveButton";
 import { getMessageEntryPresentation } from "./entryPresentation";
 import MobileSongEntry from "./SongEntry/MobileSongEntry";
+import SpotlightRowBlock from "./SpotlightRowBlock";
 
 // Mobile counterpart of Entry.tsx: dispatches an entry to its stacked-card
 // renderer below the `sm` breakpoint. Memoized (see Entry — Immer gives
@@ -69,15 +71,21 @@ const MobileEntry = memo(function MobileEntry({
         <p.Icon />
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography level="body-sm" color={p.textColor}>
-          {p.headline}
-        </Typography>
-        {p.caption && (
+        {isFlowsheetSpotlightEntry(entry) && !readOnly ? (
+          <SpotlightRowBlock entry={entry} compact />
+        ) : (
           <>
-            {" "}
-            <Typography level="body-sm" textColor="text.tertiary">
-              {p.caption}
+            <Typography level="body-sm" color={p.textColor}>
+              {p.headline}
             </Typography>
+            {p.caption && (
+              <>
+                {" "}
+                <Typography level="body-sm" textColor="text.tertiary">
+                  {p.caption}
+                </Typography>
+              </>
+            )}
           </>
         )}
       </Box>
