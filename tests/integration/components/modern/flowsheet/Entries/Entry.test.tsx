@@ -7,6 +7,8 @@ import {
   FlowsheetMessageEntry,
   FlowsheetBreakpointEntry,
 } from "@/lib/features/flowsheet/types";
+import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
+import { V2_ENTRY_FACTORIES_BY_TYPE } from "@/tests/fixtures/fixtures";
 
 // Mock child components
 vi.mock("@/src/components/experiences/modern/flowsheet/Entries/StartShowIcon", async () => {
@@ -353,6 +355,47 @@ describe("Entry", () => {
 
       const startDecorator = screen.getByTestId("start-decorator");
       expect(startDecorator.querySelector("svg")).toBeInTheDocument();
+    });
+  });
+
+  describe("Who's-on (spotlight) Entry", () => {
+    const mockSpotlightEntry = convertV2Entry(
+      V2_ENTRY_FACTORIES_BY_TYPE.spotlight({
+        spotlight_role: "performer",
+        spotlight_name: "Jessica Pratt",
+        message: "Spotlight: Jessica Pratt",
+      })
+    );
+
+    it("should render MessageEntry with the name and the role wording, not the server's message", () => {
+      render(<Entry entry={mockSpotlightEntry} playing={false} />);
+
+      expect(screen.getByTestId("message-entry")).toBeInTheDocument();
+      expect(screen.getByText("Jessica Pratt")).toBeInTheDocument();
+      expect(screen.getByText("live in the studio")).toBeInTheDocument();
+      expect(screen.queryByText(/Spotlight/i)).not.toBeInTheDocument();
+    });
+
+    it("should have the neutral tone and soft variant", () => {
+      render(<Entry entry={mockSpotlightEntry} playing={false} />);
+
+      expect(screen.getByTestId("message-entry")).toHaveAttribute(
+        "data-color",
+        "neutral"
+      );
+      expect(screen.getByTestId("message-entry")).toHaveAttribute(
+        "data-variant",
+        "soft"
+      );
+    });
+
+    it("should render the role's own icon as start decorator", () => {
+      render(<Entry entry={mockSpotlightEntry} playing={false} />);
+
+      const startDecorator = screen.getByTestId("start-decorator");
+      expect(
+        startDecorator.querySelector("[data-testid='MusicNoteIcon']")
+      ).toBeInTheDocument();
     });
   });
 
