@@ -5,6 +5,8 @@ import type { OpenShow } from "@/lib/features/flowsheet/types";
 import ReadRetryAlert from "@/src/components/experiences/modern/admin/ReadRetryAlert";
 import { Button, Chip, Sheet, Stack, Table, Typography } from "@mui/joy";
 import { useState } from "react";
+import EditShowDetailsDialog from "@/src/components/experiences/modern/EditShowDetailsDialog";
+import { specialtyCopy } from "@/lib/features/specialty/copy";
 import ForceEndDialog from "./ForceEndDialog";
 
 /**
@@ -22,6 +24,7 @@ export default function OpenShowsTable() {
     widened ? FULL_WINDOW : {}
   );
   const [target, setTarget] = useState<OpenShow | null>(null);
+  const [editTarget, setEditTarget] = useState<OpenShow | null>(null);
 
   // The read opts out of the non-JSON soft-fail upstream, so a dead backend
   // lands here as an error — never as the empty state below, which would
@@ -83,7 +86,7 @@ export default function OpenShowsTable() {
                 <th>Show</th>
                 <th style={{ width: "12%" }}>Entries</th>
                 <th style={{ width: "18%" }}>Status</th>
-                <th style={{ width: "12%" }} aria-label="actions" />
+                <th style={{ width: "24%" }} aria-label="actions" />
               </tr>
             </thead>
             <tbody>
@@ -111,6 +114,15 @@ export default function OpenShowsTable() {
                   </td>
                   <td>
                     <Button
+                      variant="plain"
+                      color="neutral"
+                      size="sm"
+                      onClick={() => setEditTarget(show)}
+                      data-testid={`open-show-edit-${show.id}`}
+                    >
+                      {specialtyCopy.editDetails}
+                    </Button>
+                    <Button
                       variant="outlined"
                       color={show.is_current ? "danger" : "neutral"}
                       size="sm"
@@ -133,6 +145,15 @@ export default function OpenShowsTable() {
           key={target.id}
           show={target}
           onClose={() => setTarget(null)}
+        />
+      ) : null}
+      {editTarget ? (
+        <EditShowDetailsDialog
+          key={editTarget.id}
+          showId={editTarget.id}
+          specialty={editTarget.specialty}
+          showName={editTarget.show_name}
+          onClose={() => setEditTarget(null)}
         />
       ) : null}
     </Sheet>

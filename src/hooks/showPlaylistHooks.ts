@@ -30,6 +30,8 @@ export type ShowPlaylist = {
   /** The airing's own name beneath a program title; null when it adds nothing. */
   subtitle: string | null;
   specialty: SpecialtyShowRef | null;
+  /** The airing's own name as stored, for editing; `subtitle` is what is displayed. */
+  showName: string | null;
   djName: string | null;
   /** Station-local calendar day the show began. */
   day: string;
@@ -116,6 +118,7 @@ export function useShowPlaylist(showId: number | null): ShowPlaylist {
         "Unattributed show",
       subtitle: specialtySubtitle(specialty, showName),
       specialty,
+      showName,
       djName,
       day: start ? formatStationDateTime(start).day : "",
       timeRange: start

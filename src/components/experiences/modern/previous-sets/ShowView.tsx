@@ -1,7 +1,8 @@
 "use client";
 
 import NextLink from "next/link";
-import { Box, Link, Sheet, Typography } from "@mui/joy";
+import { useState } from "react";
+import { Box, Button, Link, Sheet, Typography } from "@mui/joy";
 import {
   useCanEditShowRows,
   usePastShowEntryActions,
@@ -11,6 +12,8 @@ import {
 import SpecialtyTile from "@/src/components/experiences/modern/SpecialtyTile";
 import ShowEntriesPanel from "@/src/components/experiences/modern/schedule-week/ShowEntriesPanel";
 import { EntryActionsProvider } from "@/src/hooks/entryActions";
+import EditShowDetailsDialog from "@/src/components/experiences/modern/EditShowDetailsDialog";
+import { specialtyCopy } from "@/lib/features/specialty/copy";
 import { hrefForShow } from "@/lib/features/schedule-week/showUrl";
 
 /**
@@ -39,6 +42,7 @@ export default function ShowView({
   const show = useShowPlaylist(showId);
   const canEdit = useCanEditShowRows(show);
   const actions = usePastShowEntryActions(showId);
+  const [editing, setEditing] = useState(false);
 
   useScrollToShowEntry(highlightedEntryId, show.entries.length);
 
@@ -96,6 +100,11 @@ export default function ShowView({
           {show.djName && (
             <Typography level="body-sm">Disc Jockey: {show.djName}</Typography>
           )}
+          {canEdit && (
+            <Button size="sm" variant="outlined" color="neutral" onClick={() => setEditing(true)}>
+              {specialtyCopy.editDetails}
+            </Button>
+          )}
           {/* Absent, not disabled, at the archive's ends: there is no show to
               name, and a dead affordance reads as a broken one. */}
           {show.previousShowId !== null && (
@@ -118,6 +127,15 @@ export default function ShowView({
           )}
         </Box>
       </Sheet>
+
+      {editing && (
+        <EditShowDetailsDialog
+          showId={showId}
+          specialty={show.specialty}
+          showName={show.showName}
+          onClose={() => setEditing(false)}
+        />
+      )}
 
       <EntryActionsProvider value={actions}>
       <ShowEntriesPanel

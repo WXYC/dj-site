@@ -170,4 +170,22 @@ describe("OpenShowsTable", () => {
     expect(await screen.findByTestId("force-end-dialog")).toBeInTheDocument();
     expect(screen.getByTestId("force-end-dialog")).toHaveTextContent("dj sue");
   });
+  it("offers Edit show details for each open show, opening the dialog on that show's title", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/specialty-shows`, () => HttpResponse.json([])),
+      listHandler({
+        shows: [show({ id: 1, show_name: "Sonamos Hour" }), show({ id: 2, show_name: "Late Set" })],
+        total_in_window: 2,
+        older_open_show_count: 0,
+      })
+    );
+
+    const { user } = renderWithProviders(<OpenShowsTable />);
+
+    expect(await screen.findByTestId("open-show-edit-1")).toBeInTheDocument();
+    await user.click(screen.getByTestId("open-show-edit-2"));
+
+    expect(await screen.findByText("Edit show details", { selector: "h2, h1, [id]" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /title/i })).toHaveValue("Late Set");
+  });
 });
