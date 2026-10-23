@@ -3,7 +3,7 @@
 import { FlowsheetSpotlightEntry } from "@/lib/features/flowsheet/types";
 import { whosOnCopy, whosOnRoleText } from "@/lib/features/flowsheet/whos-on-copy";
 import { useEntryActions } from "@/src/hooks/entryActions";
-import { useLiveStatus } from "@/src/hooks/flowsheetHooks";
+import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { CheckRounded, EditOutlined } from "@mui/icons-material";
 import { IconButton, Input, Stack, Tooltip, Typography } from "@mui/joy";
 import { useState, type FormEvent } from "react";
@@ -19,12 +19,15 @@ export default function SpotlightRowBlock({
 }: {
   entry: FlowsheetSpotlightEntry;
 }) {
-  const { live } = useLiveStatus();
+  const { live, currentShow } = useShowControl();
   const { updateFlowsheet, pastShow } = useEntryActions();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(entry.spotlight_name);
 
-  const canEdit = live || pastShow;
+  // The same gate as the sibling rows: a past show's rows are the manager's to
+  // edit, but on the live flowsheet only the on-air DJ's own show is, never an
+  // earlier show's row from the feed above it.
+  const canEdit = pastShow || (live && entry.show_id == currentShow);
   const caption = whosOnRoleText(entry.spotlight_role);
 
   const save = (e: FormEvent<HTMLFormElement>) => {
@@ -60,7 +63,7 @@ export default function SpotlightRowBlock({
             size="sm"
             variant="plain"
             color="primary"
-            aria-label="Save name"
+            aria-label={whosOnCopy.saveName}
           >
             <CheckRounded />
           </IconButton>
@@ -83,12 +86,12 @@ export default function SpotlightRowBlock({
         </Typography>
       )}
       {canEdit && (
-        <Tooltip title="Edit name" variant="outlined" size="sm">
+        <Tooltip title={whosOnCopy.editName} variant="outlined" size="sm">
           <IconButton
             size="sm"
             variant="plain"
             color="neutral"
-            aria-label="Edit name"
+            aria-label={whosOnCopy.editName}
             onClick={() => {
               setValue(entry.spotlight_name);
               setEditing(true);
