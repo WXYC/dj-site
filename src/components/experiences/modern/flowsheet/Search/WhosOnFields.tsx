@@ -1,4 +1,5 @@
 import {
+  WHOS_ON_NAME_MAX_LENGTH,
   WHOS_ON_ROLES,
   whosOnCopy,
 } from "@/lib/features/flowsheet/whos-on-copy";
@@ -56,7 +57,7 @@ export default function WhosOnFields({
           disabled={disabled}
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
-          slotProps={{ input: { maxLength: 128 } }}
+          slotProps={{ input: { maxLength: WHOS_ON_NAME_MAX_LENGTH } }}
         />
         <FormHelperText>{whosOnCopy.publicNotice(role)}</FormHelperText>
       </FormControl>

@@ -23,7 +23,7 @@ import {
 } from "@/src/utilities/stationTime";
 import { useCurrentBreakpointHours } from "@/src/hooks/flowsheetHooks";
 import { useWhosOn } from "@/src/hooks/whosOnHooks";
-import { WHOS_ON_ROLES, whosOnCopy } from "@/lib/features/flowsheet/whos-on-copy";
+import { WHOS_ON_NAME_MAX_LENGTH, WHOS_ON_ROLES, whosOnCopy } from "@/lib/features/flowsheet/whos-on-copy";
 import type { SpotlightRole } from "@wxyc/shared";
 
 type EntryType = "track" | "talkset" | "breakpoint" | SpotlightRole;
@@ -383,6 +383,7 @@ export default function EntryForm({
               autoCorrect="off"
               id="whosOnName"
               name="whosOnName"
+              maxLength={WHOS_ON_NAME_MAX_LENGTH}
               value={whosOnName}
               onChange={(e) => setWhosOnName(e.target.value)}
               disabled={!isLive}

@@ -8,6 +8,9 @@ type RoleCopy = {
   row: string;
 };
 
+/** The longest name the server accepts: Backend-Service's SPOTLIGHT_NAME_MAX_LENGTH. */
+export const WHOS_ON_NAME_MAX_LENGTH = 128;
+
 /** The roles in menu order. The wire calls these rows "spotlight"; the DJ site never does. */
 export const WHOS_ON_ROLES: readonly RoleCopy[] = [
   { role: "performer", menu: "Live in the studio", row: "live in the studio" },
