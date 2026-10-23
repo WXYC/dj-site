@@ -25,7 +25,7 @@ vi.mock("sonner", async (importOriginal) => ({
   toast: { error: toastError },
 }));
 
-const [ORANGE_COUNTY, HYPERLOCAL] = SEED_CATALOG;
+const [ORANGE_COUNTY, HYPERLOCAL, BACKYARD_BBQ] = SEED_CATALOG;
 const RETIRED = SEED_CATALOG.find((p) => !p.active)!;
 const SHOW_ID = 77;
 // Station (Eastern) wall clock; late October 2026 is still EDT (UTC-4).
@@ -223,6 +223,20 @@ describe("EditShowDetailsDialog", () => {
       renderDialog({ startTime: MONDAY_MORNING });
       await catalogLoaded(ORANGE_COUNTY.name);
       expect(screen.queryByText(/usually airs/)).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["the first of two programs sharing the slot", HYPERLOCAL],
+      ["the second of two programs sharing the slot", BACKYARD_BBQ],
+    ])("shows nothing when the show is tagged with %s", async (_case, specialty) => {
+      renderDialog({ startTime: SUNDAY_FOUR, specialty });
+      await catalogLoaded(ORANGE_COUNTY.name);
+      expect(screen.queryByText(/usually airs/)).not.toBeInTheDocument();
+    });
+
+    it("names the first program a shared slot lists for a show tagged with a program outside the slot", async () => {
+      renderDialog({ startTime: SUNDAY_FOUR, specialty: ORANGE_COUNTY });
+      expect(await screen.findByText(hint(HYPERLOCAL.name))).toBeInTheDocument();
     });
 
     it("shows nothing when the show is already tagged with the matching program", async () => {

@@ -54,9 +54,11 @@ export default function EditShowDetailsDialog({
   const programs = catalog.filter((p) => p.active || p.id === specialty?.id);
   const current = specialty && !programs.some((p) => p.id === specialty.id) ? specialty : null;
 
-  // A suggestion only: it never touches `choice` or the save body.
-  const slotProgram = programsForStart(startTime, catalog)[0]?.program;
-  const hint = slotProgram && slotProgram.id !== specialty?.id ? slotProgram.name : null;
+  // A suggestion only: it never touches `choice` or the save body. A show
+  // tagged with any program that shares its slot needs no suggestion; otherwise
+  // the first match in catalog order is named.
+  const slotPrograms = programsForStart(startTime, catalog).map((match) => match.program);
+  const hint = slotPrograms.some((p) => p.id === specialty?.id) ? null : (slotPrograms[0]?.name ?? null);
 
   const save = async () => {
     const body: { specialty_id?: number | null; show_name?: string | null } = {};
