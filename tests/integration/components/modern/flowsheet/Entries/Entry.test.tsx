@@ -55,9 +55,9 @@ vi.mock("@/src/components/experiences/modern/flowsheet/Entries/Components/DateTi
   ),
 }));
 
-// The who's-on row's editor reads the live status and the entry actions.
+// The who's-on row's editor reads the live status, the current show and the entry actions.
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
-  useLiveStatus: () => ({ live: true }),
+  useShowControl: () => ({ live: true, currentShow: -1 }),
   useFlowsheetActions: () => ({
     updateFlowsheet: vi.fn(),
     removeFromFlowsheet: vi.fn(),

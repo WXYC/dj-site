@@ -50,6 +50,10 @@ export const whosOnCopy = {
     role === "guest"
       ? "This name shows in the listener apps. Use the name your guest wants public."
       : "This name shows in the listener apps.",
+  /** The row's pencil: its tooltip and accessible name. */
+  editName: "Edit name",
+  /** The row editor's save button: its accessible name. */
+  saveName: "Save name",
   add: "Add",
   logSong: "Log a song",
   disabled: "Who's on air isn't turned on yet.",
