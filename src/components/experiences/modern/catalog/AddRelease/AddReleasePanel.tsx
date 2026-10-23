@@ -30,6 +30,7 @@ import {
   useGetGenresQuery,
   useWriteCompilationTracksMutation,
 } from "@/lib/features/catalog/api";
+import { codePointLength } from "@/lib/features/catalog/adminCreateArtistValidation";
 import { ALBUM_TEXT_MAX_LENGTH } from "@/lib/features/catalog/constants";
 import { isCompilationReleaseArtistName } from "@/lib/features/catalog/is-compilation-artist";
 import type {
@@ -129,7 +130,10 @@ function AddReleaseForm() {
 
   // Computed live off the field, not at submit, so the refusal is visible as
   // the MD types rather than only after a click that appears to do nothing.
-  const albumArtistTooLong = form.albumArtist.trim().length > ALBUM_TEXT_MAX_LENGTH;
+  // Counted in code points, as POST /library's `normalizeOptionalText` counts
+  // it, so an astral character costs one slot rather than two.
+  const albumArtistTooLong =
+    codePointLength(form.albumArtist.trim()) > ALBUM_TEXT_MAX_LENGTH;
 
   const closePanel = () => {
     setOpen(false);
@@ -309,9 +313,10 @@ function AddReleaseForm() {
         // Detection stays by artist name: `album_artist` is a credit that may
         // legitimately differ from the shelf, not a V/A marker, so it cannot
         // decide whether a release needs per-track artists. The strict
-        // whole-name predicate is deliberate — the lenient substring one would pull single artists
-        // whose names merely contain "various" or "soundtrack" into a per-track
-        // capture step that makes no sense for them.
+        // whole-name predicate is deliberate — the lenient substring one would
+        // pull single artists whose names merely contain "various" or
+        // "soundtrack" into a per-track capture step that makes no sense for
+        // them.
         if (isCompilationReleaseArtistName(artistName)) {
           if (typeof created?.id === "number") {
             setVaStep({ libraryId: created.id, albumTitle, attempted: false });

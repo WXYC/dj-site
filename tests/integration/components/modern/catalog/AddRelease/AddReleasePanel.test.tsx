@@ -400,6 +400,41 @@ describe("AddReleasePanel", () => {
       expect(getReceivedBody()).toBeUndefined();
     });
 
+    // The backend counts code points, not UTF-16 units, so an astral
+    // character (two units) still counts once against the 128 limit.
+    it.each([
+      { codePoints: 128, accepted: true },
+      { codePoints: 129, accepted: false },
+    ])(
+      "counts an astral album artist of $codePoints code points by code point (accepted: $accepted)",
+      async ({ codePoints, accepted }) => {
+        const getReceivedBody = mockAddAlbum();
+        const { user } = renderWithProviders(<AddReleasePanel />);
+        const albumArtist = "\u{1D11E}".repeat(codePoints);
+
+        await openPanel(user);
+        setFieldValue(screen.getByLabelText(/Album title/), "Aluminum Tunes");
+        await pickGenre(user);
+        await pickFormat(user);
+        setFieldValue(await screen.findByPlaceholderText("Search artists..."), "Stereolab");
+        setFieldValue(await screen.findByPlaceholderText("Search labels..."), "Duophonic");
+        setFieldValue(screen.getByLabelText(/Album artist/), albumArtist);
+
+        const error = screen.queryByText("Album artist must be 128 characters or fewer.");
+        await user.click(screen.getByRole("button", { name: "Save Release" }));
+
+        if (accepted) {
+          expect(error).not.toBeInTheDocument();
+          await waitFor(() =>
+            expect(getReceivedBody()).toMatchObject({ album_artist: albumArtist }),
+          );
+        } else {
+          expect(error).toBeInTheDocument();
+          expect(getReceivedBody()).toBeUndefined();
+        }
+      },
+    );
+
     it("counts a typed album artist as unsaved input when dismissing", async () => {
       const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
       const { user } = renderWithProviders(<AddReleasePanel />);
@@ -673,6 +708,8 @@ describe("AddReleasePanel", () => {
       const labelInput = await screen.findByPlaceholderText("Search labels...");
       setFieldValue(labelInput, "self-released");
 
+      const albumArtistInput = screen.getByLabelText(/Album artist/);
+
       await user.click(screen.getByRole("button", { name: "Save Release" }));
       await waitFor(() => expect(getReceivedBody()).toBeDefined());
 
@@ -681,6 +718,7 @@ describe("AddReleasePanel", () => {
       expect(screen.getByRole("combobox", { name: "Format" })).toBeDisabled();
       expect(artistInput).toBeDisabled();
       expect(labelInput).toBeDisabled();
+      expect(albumArtistInput).toBeDisabled();
 
       resolveResponse!(
         HttpResponse.json(
@@ -699,6 +737,7 @@ describe("AddReleasePanel", () => {
       expect(screen.getByRole("combobox", { name: "Format" })).toBeEnabled();
       expect(artistInput).toBeEnabled();
       expect(labelInput).toBeEnabled();
+      expect(albumArtistInput).toBeEnabled();
     });
 
     // A trailing space submits identically to the trimmed term — the guard

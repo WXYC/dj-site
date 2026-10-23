@@ -42,7 +42,7 @@ export function parseRequiredPositiveInt(raw: string): number | null {
  * directions -- see `normalizedCodePointLength` for why the disagreement is
  * two-sided rather than merely strict.
  */
-function codePointLength(value: string): number {
+export function codePointLength(value: string): number {
   return Array.from(value).length;
 }
 

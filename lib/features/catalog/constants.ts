@@ -14,9 +14,10 @@ export const CATALOG_QUERY_MAX_LIMIT = 100;
 export const DISCOGS_UNAVAILABLE_NOTE_MAX_LENGTH = 500;
 
 /**
- * `library.album_title`, `library.alternate_artist_name`, and `library.label`
- * are all `varchar(128)`. PATCH /library/:id rejects longer values with a 400,
- * so an edit UI must cap them client-side rather than let the round trip fail.
+ * `library.album_title`, `library.alternate_artist_name`, `library.label`, and
+ * `library.album_artist` are all `varchar(128)`. POST /library and PATCH
+ * /library/:id reject longer values with a 400, so the add and edit UIs must
+ * cap them client-side rather than let the round trip fail.
  */
 export const ALBUM_TEXT_MAX_LENGTH = 128;
 
