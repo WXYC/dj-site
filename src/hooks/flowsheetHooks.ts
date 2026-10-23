@@ -35,7 +35,6 @@ import { safeCapture } from "@/lib/posthog";
 import { useFlowsheetPollingInterval } from "./useSSEConnection";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
 import { backendWriteErrorMessage } from "@/lib/backend-error-message";
-import { refusalSentence } from "@/lib/features/show-playlist/api";
 import { ONE_TAP_TAG_REFUSED_SENTENCE } from "@/lib/features/specialty/copy";
 import {
   FlowsheetEntry,
@@ -331,7 +330,7 @@ export const useShowControl = () => {
     } catch (err) {
       const conflict = readShowAlreadyOpen(err);
       if (conflict) return { status: "conflict", handoff: conflict };
-      if (tag && refusalSentence(err as { status?: unknown; data?: unknown }, ONE_TAP_TAG_REFUSED_SENTENCE)) {
+      if (tag && (err as { status?: unknown }).status === 400) {
         return { status: "tag-refused", message: ONE_TAP_TAG_REFUSED_SENTENCE };
       }
       return {
