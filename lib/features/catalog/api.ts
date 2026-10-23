@@ -956,7 +956,7 @@ export const catalogApi = createApi({
     /**
      * The call number a new release filed under this artist, on this genre's
      * shelf, would be assigned, previewed for the add-release form. Soft-fails
-     * like `peekArtistCode` rather than opting into `surfaceNonJsonAsError`:
+     * rather than opting into `surfaceNonJsonAsError`, unlike `peekArtistCode`:
      * the form degrades to the server's own MAX+1 assignment when this cannot
      * be read, so an unreachable peek must not throw -- it resolves to no
      * prepopulated number.
@@ -993,6 +993,18 @@ export const catalogApi = createApi({
       query: ({ code_letters, genre_id }) => ({
         url: "/artists/peek-code",
         params: { code_letters, genre_id },
+      }),
+      // The shared base query soft-fails an unparseable body (a proxy's HTML
+      // 502) into a successful `null`, which both previews would render as an
+      // empty value. Opt out so an outage reaches them as an error; an
+      // answer with no `next_code_number` stays a success.
+      extraOptions: { surfaceNonJsonAsError: true },
+      // Both previews name the failure inline, so the global rejected-query
+      // toast would announce the same outage twice; see searchArtistsInGenre.
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { peekArtistCodeError: FetchBaseQueryError } => ({
+        peekArtistCodeError: response,
       }),
       providesTags: (_result, _error, { code_letters, genre_id }) => [
         { type: "ArtistCodePeek", id: `${genre_id}:${code_letters}` },

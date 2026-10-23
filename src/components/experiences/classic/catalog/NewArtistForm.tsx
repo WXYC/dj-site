@@ -81,7 +81,7 @@ export default function NewArtistForm() {
   // true while a good cached list is still on screen, so this reads
   // absence-of-list, never the error flag.
   const genresUnavailable = isGenresUnavailable(genresQuery);
-  const [peekArtistCode, { data: peekData, isFetching: peekFetching }] =
+  const [peekArtistCode, { data: peekData, isFetching: peekFetching, isError: peekError }] =
     useLazyPeekArtistCodeQuery();
 
   const [presentationName, setPresentationName] = useState("");
@@ -133,7 +133,7 @@ export default function NewArtistForm() {
   // previous answer is derived for that one frame. Left open deliberately --
   // closing it means restructuring the query for a window one render wide.
   const peekedCodeNumber =
-    peekArg && !peekStale && !peekFetching && peekData?.next_code_number != null
+    peekArg && !peekStale && !peekFetching && !peekError && peekData?.next_code_number != null
       ? String(peekData.next_code_number)
       : "";
 
@@ -398,7 +398,11 @@ export default function NewArtistForm() {
               {peekArg && (
                 <span role="status" aria-live="polite">
                   &nbsp;Next code:{" "}
-                  {peekStale || peekFetching ? "…" : (peekData?.next_code_number ?? "…")}
+                  {peekStale || peekFetching
+                    ? "…"
+                    : peekError
+                      ? "Unable to preview code"
+                      : (peekData?.next_code_number ?? "…")}
                 </span>
               )}
             </td>

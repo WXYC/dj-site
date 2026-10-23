@@ -10,10 +10,13 @@ import {
   TEST_SEARCH_STRINGS,
 } from "@/tests/helpers";
 
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+
 vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),
 }));
 
+import { toast } from "sonner";
 import NewArtistFields, {
   type CodeLettersField,
   type NewArtistConflict,
@@ -323,6 +326,26 @@ describe("NewArtistFields", () => {
       renderWithProviders(<Harness initialCodeLetters={MOLINA} />);
 
       expect(await screen.findByText("Unable to preview code")).toBeInTheDocument();
+    });
+
+    it("names a peek answered with a non-JSON body, once, and never as an empty value", async () => {
+      // A proxy's HTML error page: the shared base query would otherwise
+      // soft-fail it into a successful null and leave "Next code:" blank.
+      server.use(
+        http.get(
+          `${TEST_BACKEND_URL}/library/artists/peek-code`,
+          () =>
+            new HttpResponse("<!DOCTYPE html><html><body>Bad Gateway</body></html>", {
+              status: 502,
+              headers: { "Content-Type": "text/html" },
+            }),
+        ),
+      );
+      renderWithProviders(<Harness initialCodeLetters={MOLINA} />);
+
+      expect(await screen.findByText("Unable to preview code")).toBeInTheDocument();
+      expect(screen.queryByTestId("next-code-number")).not.toBeInTheDocument();
+      expect(toast.error).not.toHaveBeenCalled();
     });
   });
 
