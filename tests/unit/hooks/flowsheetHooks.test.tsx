@@ -446,6 +446,7 @@ describe("flowsheetHooks", () => {
       ["a one-tap first attempt answered 400", undefined, { specialty_id: 10 }, "tag-refused", ONE_TAP_TAG_REFUSED_SENTENCE],
       ["a one-tap takeover answered 400", { intent: "takeover" as const, expected_show_id: 7 }, { specialty_id: 10 }, "tag-refused", ONE_TAP_TAG_REFUSED_SENTENCE],
       ["a plain Go Live answered 400", undefined, undefined, "error", "Bad Request: specialty_id is unknown or names a retired specialty show"],
+      ["a titled sign-on without a program answered 400", undefined, { show_name: "Season opener" }, "error", "Bad Request: specialty_id is unknown or names a retired specialty show"],
     ])("maps %s", async (_name, decision, tag, status, message) => {
       mockGoLiveFunction.mockReturnValueOnce({
         unwrap: () =>

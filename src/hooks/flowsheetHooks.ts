@@ -330,7 +330,13 @@ export const useShowControl = () => {
     } catch (err) {
       const conflict = readShowAlreadyOpen(err);
       if (conflict) return { status: "conflict", handoff: conflict };
-      if (tag && (err as { status?: unknown }).status === 400) {
+      // Classic sign-on sends a title-only tag (`{ show_name }`) with no
+      // program, so a 400 there is not about a program. Same test as joinShow's
+      // expected-error guard in lib/features/flowsheet/api.ts.
+      if (
+        tag?.specialty_id !== undefined &&
+        (err as { status?: unknown }).status === 400
+      ) {
         return { status: "tag-refused", message: ONE_TAP_TAG_REFUSED_SENTENCE };
       }
       return {
