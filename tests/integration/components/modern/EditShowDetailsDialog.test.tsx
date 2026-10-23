@@ -28,9 +28,14 @@ vi.mock("sonner", async (importOriginal) => ({
 const [ORANGE_COUNTY, HYPERLOCAL] = SEED_CATALOG;
 const RETIRED = SEED_CATALOG.find((p) => !p.active)!;
 const SHOW_ID = 77;
+// Station (Eastern) wall clock; late October 2026 is still EDT (UTC-4).
+const MONDAY_MORNING = "2026-10-26T15:00:00Z";
+const SUNDAY_NOON = "2026-10-25T16:00:00Z";
+const SUNDAY_ELEVEN_FIFTY_FIVE = "2026-10-25T15:55:00Z";
+const SUNDAY_FOUR = "2026-10-25T20:00:00Z";
 
-function serveCatalog() {
-  server.use(http.get(`${TEST_BACKEND_URL}/specialty-shows`, () => HttpResponse.json(SEED_CATALOG)));
+function serveCatalog(catalog = SEED_CATALOG) {
+  server.use(http.get(`${TEST_BACKEND_URL}/specialty-shows`, () => HttpResponse.json(catalog)));
 }
 
 function serveSave(respond: () => Response = () => HttpResponse.json({})) {
@@ -45,15 +50,17 @@ function serveSave(respond: () => Response = () => HttpResponse.json({})) {
 }
 
 function renderDialog(
-  props: Partial<React.ComponentProps<typeof EditShowDetailsDialog>> = {}
+  props: Partial<React.ComponentProps<typeof EditShowDetailsDialog>> = {},
+  catalog = SEED_CATALOG
 ) {
-  serveCatalog();
+  serveCatalog(catalog);
   const onClose = vi.fn();
   const view = renderWithProviders(
     <EditShowDetailsDialog
       showId={SHOW_ID}
       specialty={null}
       showName={null}
+      startTime={MONDAY_MORNING}
       onClose={onClose}
       {...props}
     />
@@ -188,5 +195,52 @@ describe("EditShowDetailsDialog", () => {
     await waitFor(() => expect(toastError).toHaveBeenCalled());
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.queryByText(CLOSED_SHOW_SENTENCE)).not.toBeInTheDocument();
+  });
+
+  describe("time-slot hint", () => {
+    const hint = (name: string) => `This time slot usually airs ${name}.`;
+
+    it.each([
+      ["inside a slot", SUNDAY_NOON, ORANGE_COUNTY.name],
+      ["inside the ten-minute lead before a slot", SUNDAY_ELEVEN_FIFTY_FIVE, ORANGE_COUNTY.name],
+      ["a slot two programs share names the first in catalog order", SUNDAY_FOUR, HYPERLOCAL.name],
+    ])("names the program when the show started %s", async (_case, startTime, name) => {
+      renderDialog({ startTime });
+      expect(await screen.findByText(hint(name))).toBeInTheDocument();
+    });
+
+    it("shows nothing when the show started outside every slot", async () => {
+      renderDialog({ startTime: MONDAY_MORNING });
+      await programSelect();
+      expect(screen.queryByText(/usually airs/)).not.toBeInTheDocument();
+    });
+
+    it("shows nothing when the show is already tagged with the matching program", async () => {
+      renderDialog({ startTime: SUNDAY_NOON, specialty: ORANGE_COUNTY });
+      await programSelect();
+      expect(screen.queryByText(/usually airs/)).not.toBeInTheDocument();
+    });
+
+    it("names the matching program for a show tagged with a different one", async () => {
+      renderDialog({ startTime: SUNDAY_NOON, specialty: HYPERLOCAL });
+      expect(await screen.findByText(hint(ORANGE_COUNTY.name))).toBeInTheDocument();
+    });
+
+    it("never names a retired program", async () => {
+      renderDialog({ startTime: SUNDAY_NOON }, [RETIRED]);
+      await programSelect();
+      expect(screen.queryByText(/usually airs/)).not.toBeInTheDocument();
+    });
+
+    it("leaves the selection and the PATCH body alone", async () => {
+      const bodies = serveSave();
+      renderDialog({ startTime: SUNDAY_NOON, showName: "Old" });
+      await screen.findByText(hint(ORANGE_COUNTY.name));
+      expect(await programSelect()).toHaveTextContent("None (freeform)");
+      await userEvent.clear(titleInput());
+      await userEvent.type(titleInput(), "New");
+      await save();
+      await waitFor(() => expect(bodies).toEqual([{ show_name: "New" }]));
+    });
   });
 });
