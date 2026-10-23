@@ -147,8 +147,8 @@ describe("request-line wording", () => {
     expect(all.filter((text) => /spotlight/i.test(text))).toEqual([]);
   });
 
-  it("closes for a guest in plain words", () => {
-    expect(requestLineCopy.spotlightClosed(undefined)).toBe("Closed while a guest is on.");
+  it("closes for any other role in plain words", () => {
+    expect(requestLineCopy.spotlightClosed(undefined)).toBe("Closed for this part of the set.");
   });
 
   it("renders no spotlight text for a spotlight source", async () => {
