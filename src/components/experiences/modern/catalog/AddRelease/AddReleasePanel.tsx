@@ -9,6 +9,7 @@ import {
   Button,
   DialogTitle,
   FormControl,
+  FormHelperText,
   FormLabel,
   Input,
   Modal,
@@ -29,6 +30,7 @@ import {
   useGetGenresQuery,
   useWriteCompilationTracksMutation,
 } from "@/lib/features/catalog/api";
+import { ALBUM_TEXT_MAX_LENGTH } from "@/lib/features/catalog/constants";
 import { isCompilationReleaseArtistName } from "@/lib/features/catalog/is-compilation-artist";
 import type {
   AddAlbumRequestBody,
@@ -65,6 +67,7 @@ function emptyForm() {
     formatId: null as number | null,
     artistName: "",
     artistId: null as number | null,
+    albumArtist: "",
     labelName: "",
     labelId: null as number | null,
   };
@@ -124,6 +127,10 @@ function AddReleaseForm() {
   const [writeCompilationTracks, { isLoading: isSavingTracks }] =
     useWriteCompilationTracksMutation();
 
+  // Computed live off the field, not at submit, so the refusal is visible as
+  // the MD types rather than only after a click that appears to do nothing.
+  const albumArtistTooLong = form.albumArtist.trim().length > ALBUM_TEXT_MAX_LENGTH;
+
   const closePanel = () => {
     setOpen(false);
     setForm(emptyForm());
@@ -136,6 +143,7 @@ function AddReleaseForm() {
     form.genreId !== null ||
     form.formatId !== null ||
     form.artistName.trim() !== "" ||
+    form.albumArtist.trim() !== "" ||
     form.labelName.trim() !== "";
 
   // Modal's onClose fires for a backdrop click, an Escape that reaches the
@@ -212,10 +220,12 @@ function AddReleaseForm() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setArtistNotFound(null);
+    if (albumArtistTooLong) return;
 
     const albumTitle = form.albumTitle.trim();
     const artistName = form.artistName.trim();
     const labelName = form.labelName.trim();
+    const albumArtist = form.albumArtist.trim();
     const hasArtist = form.artistId !== null || artistName.length > 0;
 
     if (
@@ -254,9 +264,13 @@ function AddReleaseForm() {
     if (form.labelId !== null) {
       body.label_id = form.labelId;
     }
-    // album_artist is declared on the shared AddAlbumRequest type but the
-    // backend silently drops it — never send it. code_number is assigned
-    // server-side here — never send it either.
+    // album_artist is the optional credit, sent only when the MD typed one; an
+    // empty value is omitted rather than sent blank. It is a credit, not a V/A
+    // marker (the shelf defines that). code_number is assigned server-side
+    // here — never send it.
+    if (albumArtist) {
+      body.album_artist = albumArtist;
+    }
 
     // Every field is disabled for the duration of this request (see the
     // `disabled={isLoading}` props below), so in the ordinary case nothing
@@ -292,11 +306,10 @@ function AddReleaseForm() {
       // otherwise replace that unrelated form with a tracklist step addressed
       // to a release the MD has stopped looking at.
       if (formGenerationRef.current === submitGeneration) {
-        // Detection is by name because it is the only signal available here:
-        // `album_artist`, the deterministic V/A marker, is dropped by the
-        // backend on this route (see the body-construction note above), so it
-        // cannot be sent and cannot come back. The strict whole-name predicate
-        // is deliberate — the lenient substring one would pull single artists
+        // Detection stays by artist name: `album_artist` is a credit that may
+        // legitimately differ from the shelf, not a V/A marker, so it cannot
+        // decide whether a release needs per-track artists. The strict
+        // whole-name predicate is deliberate — the lenient substring one would pull single artists
         // whose names merely contain "various" or "soundtrack" into a per-track
         // capture step that makes no sense for them.
         if (isCompilationReleaseArtistName(artistName)) {
@@ -460,6 +473,22 @@ function AddReleaseForm() {
                     </Typography>
                   </Sheet>
                 )}
+
+                <FormControl error={albumArtistTooLong}>
+                  <FormLabel>Album artist</FormLabel>
+                  <Input
+                    value={form.albumArtist}
+                    disabled={isLoading}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, albumArtist: e.target.value }))
+                    }
+                  />
+                  {albumArtistTooLong && (
+                    <FormHelperText>
+                      Album artist must be {ALBUM_TEXT_MAX_LENGTH} characters or fewer.
+                    </FormHelperText>
+                  )}
+                </FormControl>
 
                 <FormControl required>
                   <FormLabel>Label</FormLabel>

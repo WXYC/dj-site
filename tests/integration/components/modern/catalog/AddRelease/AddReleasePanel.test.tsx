@@ -297,7 +297,7 @@ describe("AddReleasePanel", () => {
       expect(await screen.findByPlaceholderText("Search artists...")).toBeEnabled();
     });
 
-    it("sends the resolved artist_id alongside artist_name and label_id when the MD picks existing rows, and never sends album_artist or code_number", async () => {
+    it("sends the resolved artist_id alongside artist_name and label_id when the MD picks existing rows, omits album_artist when none is typed, and never sends code_number", async () => {
       mockArtistSearch([
         { id: 12, artist_name: "Juana Molina", code_letters: "MO", code_number: 3 },
       ]);
@@ -334,6 +334,82 @@ describe("AddReleasePanel", () => {
           label_id: 5,
         }),
       );
+    });
+
+    it("sends the trimmed album artist as album_artist", async () => {
+      const getReceivedBody = mockAddAlbum();
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await openPanel(user);
+      setFieldValue(screen.getByLabelText(/Album title/), "Aluminum Tunes");
+      await pickGenre(user);
+      await pickFormat(user);
+      setFieldValue(await screen.findByPlaceholderText("Search artists..."), "Stereolab");
+      setFieldValue(await screen.findByPlaceholderText("Search labels..."), "Duophonic");
+      setFieldValue(screen.getByLabelText(/Album artist/), "  Stereolab & Friends  ");
+
+      await user.click(screen.getByRole("button", { name: "Save Release" }));
+
+      await waitFor(() =>
+        expect(getReceivedBody()).toEqual({
+          album_title: "Aluminum Tunes",
+          genre_id: ROCK_GENRE_ID,
+          format_id: CD_FORMAT_ID,
+          artist_name: "Stereolab",
+          label: "Duophonic",
+          album_artist: "Stereolab & Friends",
+        }),
+      );
+    });
+
+    it("omits album_artist when it is only whitespace", async () => {
+      const getReceivedBody = mockAddAlbum();
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await openPanel(user);
+      setFieldValue(screen.getByLabelText(/Album title/), "Aluminum Tunes");
+      await pickGenre(user);
+      await pickFormat(user);
+      setFieldValue(await screen.findByPlaceholderText("Search artists..."), "Stereolab");
+      setFieldValue(await screen.findByPlaceholderText("Search labels..."), "Duophonic");
+      setFieldValue(screen.getByLabelText(/Album artist/), "   ");
+
+      await user.click(screen.getByRole("button", { name: "Save Release" }));
+
+      await waitFor(() => expect(getReceivedBody()).toBeDefined());
+      expect(getReceivedBody()).not.toHaveProperty("album_artist");
+    });
+
+    it("refuses to submit an album artist over the 128-character limit", async () => {
+      const getReceivedBody = mockAddAlbum();
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await openPanel(user);
+      setFieldValue(screen.getByLabelText(/Album title/), "Aluminum Tunes");
+      await pickGenre(user);
+      await pickFormat(user);
+      setFieldValue(await screen.findByPlaceholderText("Search artists..."), "Stereolab");
+      setFieldValue(await screen.findByPlaceholderText("Search labels..."), "Duophonic");
+      setFieldValue(screen.getByLabelText(/Album artist/), "x".repeat(129));
+
+      expect(
+        screen.getByText("Album artist must be 128 characters or fewer."),
+      ).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Save Release" }));
+
+      expect(getReceivedBody()).toBeUndefined();
+    });
+
+    it("counts a typed album artist as unsaved input when dismissing", async () => {
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await openPanel(user);
+      setFieldValue(screen.getByLabelText(/Album artist/), "Various Artists");
+      await user.keyboard("{Escape}");
+
+      expect(confirmSpy).toHaveBeenCalled();
+      confirmSpy.mockRestore();
     });
 
     it("sends the label_id of a row the MD reached with the keyboard alone", async () => {
