@@ -10,7 +10,7 @@ import type {
   FlowsheetV2SpotlightEntry,
   FlowsheetEntryType,
 } from "@wxyc/shared/dtos";
-import type { FlowsheetRangeShow, SpecialtyShowRef, SpotlightRole } from "@wxyc/shared";
+import type { FlowsheetRangeShow, OnAirInfo, SpecialtyShowRef, SpotlightRole } from "@wxyc/shared";
 import { Rotation } from "../rotation/types";
 
 export type FlowsheetFrontendState = {
@@ -357,7 +357,7 @@ export type FlowsheetV2PaginatedResponseJSON = {
   limit: number;
   total: number;
   total_pages: number;
-  on_air?: { show_id?: number } | null;
+  on_air?: Pick<OnAirInfo, "show_id" | "request_line" | "spotlight"> | null;
   /** Every show behind `entries` plus the open show; absent on an older server. */
   shows?: FlowsheetRangeShow[];
 };
@@ -365,6 +365,10 @@ export type FlowsheetV2PaginatedResponseJSON = {
 /** The open show as the one-row flowsheet page reports it. */
 export type CurrentShow = Pick<FlowsheetRangeShow, "id" | "start_time" | "specialty"> & {
   show_name: string | null;
+  /** The server's effective request-line mode and the rule behind it; absent from an older server. */
+  request_line?: OnAirInfo["request_line"];
+  /** Who is in the spotlight now, so a `spotlight` source can name a band or a reader. */
+  spotlight_role?: SpotlightRole | null;
 };
 
 export type SuggestTrackResult = {

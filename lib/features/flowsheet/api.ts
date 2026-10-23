@@ -1,4 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
+import type { RequestLineMode } from "@wxyc/shared";
 import { DJRequestParams } from "../authentication/types";
 import { backendBaseQuery } from "../backend";
 import { FLOWSHEET_PAGE_SIZE } from "./constants";
@@ -132,6 +133,8 @@ export const flowsheetApi = createApi({
               start_time: show.start_time,
               specialty: show.specialty,
               show_name: show.show_name ?? null,
+              request_line: response?.on_air?.request_line,
+              spotlight_role: response?.on_air?.spotlight?.spotlight_role ?? null,
             }
           : null;
       },
@@ -139,7 +142,13 @@ export const flowsheetApi = createApi({
     }),
     updateShow: builder.mutation<
       unknown,
-      { showId: number; specialty_id?: number | null; show_name?: string | null }
+      {
+        showId: number;
+        specialty_id?: number | null;
+        show_name?: string | null;
+        /** Never sent with `specialty_id`; null returns the show to its usual setting. */
+        request_mode?: RequestLineMode | null;
+      }
     >({
       query: ({ showId, ...body }) => ({
         url: `/shows/${showId}`,
