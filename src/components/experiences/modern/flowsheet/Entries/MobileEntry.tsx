@@ -4,6 +4,7 @@ import {
   FlowsheetEntry,
   isFlowsheetSongEntry,
 } from "@/lib/features/flowsheet/types";
+import { useEntryActions } from "@/src/hooks/entryActions";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { Box, Sheet, Typography } from "@mui/joy";
 import { memo } from "react";
@@ -20,13 +21,16 @@ const MobileEntry = memo(function MobileEntry({
   playing,
   canMoveUp = false,
   canMoveDown = false,
+  readOnly = false,
 }: {
   entry: FlowsheetEntry;
   playing: boolean;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  readOnly?: boolean;
 }) {
   const { live, currentShow } = useShowControl();
+  const { pastShow } = useEntryActions();
 
   if (isFlowsheetSongEntry(entry)) {
     return (
@@ -36,13 +40,14 @@ const MobileEntry = memo(function MobileEntry({
         queue={false}
         canMoveUp={canMoveUp}
         canMoveDown={canMoveDown}
+        readOnly={readOnly}
       />
     );
   }
 
-  const editable = entry.show_id == currentShow;
+  const editable = pastShow || entry.show_id == currentShow;
   const p = getMessageEntryPresentation(entry);
-  const removable = live && editable && p.editable;
+  const removable = !readOnly && (live || pastShow) && editable && p.editable;
 
   return (
     <Sheet

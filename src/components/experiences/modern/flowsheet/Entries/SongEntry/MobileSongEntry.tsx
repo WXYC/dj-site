@@ -4,7 +4,8 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { flowsheetArtistRejection } from "@/lib/features/flowsheet/various-artists-guard";
 import { useAppDispatch } from "@/lib/hooks";
-import { useFlowsheetActions, useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useEntryActions } from "@/src/hooks/entryActions";
+import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useFlowsheetMoveContext } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
 import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
 import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
@@ -64,20 +65,24 @@ const MobileSongEntry = memo(function MobileSongEntry({
   entry,
   canMoveUp = false,
   canMoveDown = false,
+  readOnly = false,
 }: {
   playing: boolean;
   queue: boolean;
   entry: FlowsheetSongEntry;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  /** Suppresses every editing affordance, as on the desktop row. */
+  readOnly?: boolean;
 }) {
   const { live, currentShow } = useShowControl();
-  const { updateFlowsheet } = useFlowsheetActions();
+  const { updateFlowsheet, pastShow } = useEntryActions();
   const { moveEntry } = useFlowsheetMoveContext();
   const dispatch = useAppDispatch();
   const playNow = usePlayNow(entry);
 
-  const editable = queue || (live && entry.show_id == currentShow);
+  const editable =
+    !readOnly && (queue || pastShow || (live && entry.show_id == currentShow));
   const image = entry.artwork_url ?? "/img/cassette.png";
 
   const bgcolor = playing

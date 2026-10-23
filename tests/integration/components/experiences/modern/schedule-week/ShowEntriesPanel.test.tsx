@@ -30,8 +30,10 @@ vi.mock("@/src/hooks/flowsheetHooks", async (importOriginal) => {
 // layouts have to satisfy the same column contract, so the breakpoint is driven
 // rather than left to jsdom's matchMedia stub.
 const isXl = vi.fn();
+const isMobile = vi.fn(() => false);
 vi.mock("@/src/hooks/useMediaQuery", () => ({
-  useMediaQuery: () => isXl(),
+  useMediaQuery: (query: string) =>
+    query === "(max-width: 599.95px)" ? isMobile() : isXl(),
 }));
 
 const show = {
@@ -100,6 +102,7 @@ describe("ShowEntriesPanel", () => {
       userloading: false,
     });
     isXl.mockReturnValue(false);
+    isMobile.mockReturnValue(false);
   });
 
   it("lists the show's entries", () => {
@@ -287,6 +290,20 @@ describe("ShowEntriesPanel", () => {
       // The album-info button isn't an editing affordance, so read-only
       // suppresses the segue/request toggles around it without hiding it too.
       expect(screen.getByLabelText("Album information")).toBeInTheDocument();
+    });
+  });
+
+  describe("narrow layout", () => {
+    it("renders cards with no editing affordance when the panel is read-only", () => {
+      isMobile.mockReturnValue(true);
+      showControl.mockReturnValue({ live: true, autoplay: false, currentShow: show.id });
+      render(panel([entry({ id: 40 }), entry({ id: 41 })]));
+
+      expect(screen.getAllByText("Back, Baby")[0]).toBeInTheDocument();
+      expect(screen.queryByRole("table")).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Move (up|down)$/ })).toBeNull();
+      expect(screen.queryByLabelText("Edit entry")).toBeNull();
+      expect(screen.queryByTestId("flowsheet-remove-40")).toBeNull();
     });
   });
 
