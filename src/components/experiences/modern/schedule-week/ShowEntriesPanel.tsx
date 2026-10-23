@@ -1,18 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { Reorder } from "motion/react";
 import { Box, CircularProgress, Sheet, Table, Typography } from "@mui/joy";
 import type { FlowsheetRangeShow } from "@wxyc/shared";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
 import { toArchiveStreamRow } from "@/lib/features/flowsheet/stream-row";
-import { computeDragTarget } from "@/lib/features/flowsheet/reorder";
-import type { FlowsheetEntry } from "@/lib/features/flowsheet/types";
 import { useEntryActions } from "@/src/hooks/entryActions";
-import {
-  FlowsheetDragContext,
-  FlowsheetDragContextValue,
-} from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
+import { useReorderableEntries } from "@/src/hooks/useReorderableEntries";
+import { FlowsheetDragContext } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import {
   FLOWSHEET_TABLE_SX,
@@ -45,54 +41,14 @@ export default function ShowEntriesPanel({
   // whose boolean flipped instead of reconverting every row in the set.
   const rows = useMemo(() => entries.map(toArchiveStreamRow), [entries]);
 
-  // Order shown mid-drag, null when settled. The drag context reads it through
-  // refs so its identity never changes: every row consumes it.
   const { reorder } = useEntryActions();
-  const [draftOrder, setDraftOrder] = useState<FlowsheetEntry[] | null>(null);
-  const draftRef = useRef<FlowsheetEntry[] | null>(null);
-  const settledRef = useRef<FlowsheetEntry[]>([]);
-  // Frozen when a drag starts, so a playlist refetch that lands mid-drag
-  // cannot change the "before" order the drop target is computed against.
-  // Held in state as well as a ref: the render draws it, so clearing it at drag
-  // end must schedule a render even when no row moved and the draft is unchanged.
-  const [snapshot, setSnapshot] = useState<FlowsheetEntry[] | null>(null);
-  const snapshotRef = useRef<FlowsheetEntry[] | null>(null);
-  settledRef.current = rows.map((row) => row.entry);
-  const reorderRef = useRef(reorder);
-  reorderRef.current = reorder;
-
-  const handleReorder = useCallback((next: FlowsheetEntry[]) => {
-    draftRef.current = next;
-    setDraftOrder(next);
-  }, []);
-
-  const dragContext = useMemo<FlowsheetDragContextValue>(
-    () => ({
-      onEntryDragStart: () => {
-        snapshotRef.current = settledRef.current;
-        setSnapshot(settledRef.current);
-      },
-      onEntryDragEnd: (entry) => {
-        const snapshot = snapshotRef.current ?? settledRef.current;
-        const newPosition = computeDragTarget(
-          snapshot,
-          draftRef.current ?? snapshot,
-          entry.id
-        );
-        if (newPosition !== null) {
-          reorderRef.current(entry, newPosition);
-        }
-        snapshotRef.current = null;
-        setSnapshot(null);
-        draftRef.current = null;
-        setDraftOrder(null);
-      },
-    }),
-    []
-  );
+  const settled = useMemo(() => rows.map((row) => row.entry), [rows]);
+  const { shown, onReorder, dragContext } = useReorderableEntries({
+    entries: settled,
+    reorder,
+  });
 
   const entryById = new Map(rows.map((row) => [row.id, row]));
-  const shown = draftOrder ?? snapshot ?? settledRef.current;
 
   return (
     <Sheet
@@ -146,7 +102,7 @@ export default function ShowEntriesPanel({
               <Reorder.Group
                 values={shown}
                 axis="y"
-                onReorder={handleReorder}
+                onReorder={onReorder}
                 as="tbody"
               >
                 {shown.map((entry) => (
