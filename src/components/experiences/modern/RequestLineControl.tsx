@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import type { RequestLineMode } from "@wxyc/shared";
 import { Option, Select, Stack, Typography } from "@mui/joy";
 import { useGetCurrentShowQuery, useUpdateShowMutation } from "@/lib/features/flowsheet/api";
 import {
@@ -21,11 +22,13 @@ export default function RequestLineControl({ showId }: { showId: number }) {
   const [updateShow, { isLoading }] = useUpdateShowMutation();
   const [refusal, setRefusal] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const descriptionId = useId();
 
   if (show?.id !== showId || !show.request_line) {
     return null;
   }
   const { mode, source } = show.request_line;
+  const selected = knownMode(mode);
   const explanation = sourceExplanation(source, show.spotlight_role);
 
   const choose = async (choice: string) => {
@@ -48,17 +51,34 @@ export default function RequestLineControl({ showId }: { showId: number }) {
       <Select
         size="sm"
         aria-label={requestLineCopy.label}
-        value={knownMode(mode)}
+        value={selected}
         disabled={isLoading}
+        renderValue={(option) => option?.label}
+        slotProps={{ button: { "aria-describedby": descriptionId } }}
         onChange={(_e, value) => value && void choose(value)}
       >
         {Object.entries(requestLineCopy.modes).map(([value, label]) => (
-          <Option key={value} value={value}>
-            {label}
+          <Option
+            key={value}
+            value={value}
+            label={label}
+            aria-label={label}
+            aria-describedby={`${descriptionId}-${value}`}
+            sx={{ alignItems: "flex-start" }}
+          >
+            <Stack>
+              <Typography level="title-sm">{label}</Typography>
+              <Typography id={`${descriptionId}-${value}`} level="body-xs">
+                {requestLineCopy.descriptions[value as RequestLineMode]}
+              </Typography>
+            </Stack>
           </Option>
         ))}
         {source === "dj" && <Option value={USUAL_CHOICE}>{requestLineCopy.backToUsual}</Option>}
       </Select>
+      <Typography id={descriptionId} level="body-sm">
+        {requestLineCopy.descriptions[selected]}
+      </Typography>
       {explanation && <Typography level="body-sm">{explanation}</Typography>}
       {confirming && <Typography level="body-sm">{requestLineCopy.messagesConfirmed}</Typography>}
       {refusal && (
