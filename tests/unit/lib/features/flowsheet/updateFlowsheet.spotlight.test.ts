@@ -115,7 +115,7 @@ describe("a refused write to a who's-on row", () => {
     } catch (error) {
       return error as { expected?: boolean; sentence?: string };
     }
-    return undefined;
+    throw new Error("expected the write to be refused, but it was accepted");
   };
 
   it.each([
@@ -170,7 +170,7 @@ describe("a refused write to a who's-on row", () => {
     expect(error?.sentence).toBeUndefined();
   });
 
-  it("still words a closed_show refusal of a live song-field edit as before", async () => {
+  it("leaves a closed_show refusal of a live song-field edit unworded, as before", async () => {
     server.use(refuse("closed_show"));
     const error = await rejection((store) =>
       store
