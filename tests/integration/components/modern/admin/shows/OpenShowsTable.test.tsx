@@ -188,4 +188,41 @@ describe("OpenShowsTable", () => {
     expect(await screen.findByText("Edit show details", { selector: "h2, h1, [id]" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /title/i })).toHaveValue("Late Set");
   });
+  it("refreshes the row and the next dialog open after a title is saved from the table", async () => {
+    let title = "Sonamos Hour";
+    const patched: unknown[] = [];
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/specialty-shows`, () => HttpResponse.json([])),
+      http.get(`${TEST_BACKEND_URL}/flowsheet/open-shows`, () =>
+        HttpResponse.json({
+          shows: [show({ id: 1, show_name: title })],
+          total_in_window: 1,
+          older_open_show_count: 0,
+        })
+      ),
+      http.patch(`${TEST_BACKEND_URL}/flowsheet/shows/1`, async ({ request }) => {
+        const body = (await request.json()) as { show_name: string };
+        patched.push(body);
+        title = body.show_name;
+        return HttpResponse.json({ id: 1 });
+      })
+    );
+
+    const { user } = renderWithProviders(<OpenShowsTable />);
+    const row = await screen.findByTestId("open-show-row-1");
+    expect(row).toHaveTextContent("Sonamos Hour");
+
+    await user.click(screen.getByTestId("open-show-edit-1"));
+    const input = await screen.findByRole("textbox", { name: /title/i });
+    await user.clear(input);
+    await user.type(input, "Late Set");
+    await user.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(patched).toEqual([{ show_name: "Late Set" }]));
+    await waitFor(() => expect(screen.getByTestId("open-show-row-1")).toHaveTextContent("Late Set"));
+    expect(screen.getByTestId("open-show-row-1")).not.toHaveTextContent("Sonamos Hour");
+
+    await user.click(screen.getByTestId("open-show-edit-1"));
+    expect(await screen.findByRole("textbox", { name: /title/i })).toHaveValue("Late Set");
+  });
 });

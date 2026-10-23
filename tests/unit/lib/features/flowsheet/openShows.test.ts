@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
+import { showPlaylistApi } from "@/lib/features/show-playlist/api";
 import type { OpenShowsResult } from "@/lib/features/flowsheet/types";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -282,5 +283,56 @@ describe("forceEndShow", () => {
 
     listSub.unsubscribe();
     entriesSub.unsubscribe();
+  });
+});
+
+describe("updateShow", () => {
+  it("refetches the open-shows list so a saved title shows without a reload", async () => {
+    let title = "Sonamos Hour";
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/flowsheet/open-shows`, () =>
+        HttpResponse.json({
+          shows: [openShow({ show_name: title })],
+          total_in_window: 1,
+          older_open_show_count: 0,
+        })
+      ),
+      http.patch(`${TEST_BACKEND_URL}/flowsheet/shows/1951317`, async ({ request }) => {
+        title = ((await request.json()) as { show_name: string }).show_name;
+        return HttpResponse.json({ id: 1951317 });
+      })
+    );
+    const store = createTestStore();
+    const sub = store.dispatch(flowsheetApi.endpoints.getOpenShows.initiate({}));
+    expect((await sub).data?.shows[0].show_name).toBe("Sonamos Hour");
+
+    await store.dispatch(
+      flowsheetApi.endpoints.updateShow.initiate({ showId: 1951317, show_name: "Late Set" })
+    );
+
+    await vi.waitFor(() =>
+      expect(
+        flowsheetApi.endpoints.getOpenShows.select({})(store.getState()).data?.shows[0].show_name
+      ).toBe("Late Set")
+    );
+    sub.unsubscribe();
+  });
+
+  it("invalidates the show's Previous Sets playlist on success, but not on a refusal", async () => {
+    server.use(
+      http.patch(`${TEST_BACKEND_URL}/flowsheet/shows/7`, () => HttpResponse.json({ id: 7 })),
+      http.patch(`${TEST_BACKEND_URL}/flowsheet/shows/8`, () =>
+        HttpResponse.json({ message: "bad" }, { status: 400 })
+      )
+    );
+    const invalidate = vi.spyOn(showPlaylistApi.util, "invalidateTags");
+    const store = createTestStore();
+
+    await store.dispatch(flowsheetApi.endpoints.updateShow.initiate({ showId: 8, show_name: "x" }));
+    expect(invalidate).not.toHaveBeenCalled();
+
+    await store.dispatch(flowsheetApi.endpoints.updateShow.initiate({ showId: 7, show_name: "x" }));
+    expect(invalidate).toHaveBeenCalledWith([{ type: "ShowPlaylist", id: 7 }]);
+    invalidate.mockRestore();
   });
 });
