@@ -42,7 +42,15 @@ export default function EntryForm({
   const whosOn = useWhosOn();
   const [whosOnName, setWhosOnName] = useState("");
 
-  const [entryType, setEntryType] = useState<EntryType>("track");
+  const [selectedEntryType, setEntryType] = useState<EntryType>("track");
+  const isRoleEntry = WHOS_ON_ROLES.some((r) => r.role === selectedEntryType);
+  // A role entry stays selected only while the open show still offers the
+  // roles. If it stops (the current show refetches onto a program without a
+  // usual role, or onto no show), the select has no option for the value, so
+  // the form falls back to Track rather than keep a name field and Add the
+  // select no longer shows.
+  const entryType: EntryType =
+    isRoleEntry && !whosOn.available ? "track" : selectedEntryType;
   // Defaults to WXYC Library: DJs pull from the library far more often than
   // rotation, so rotation-first cost an extra switch on most entries.
   const [releaseType, setReleaseType] = useState<ReleaseType>("libraryRelease");
@@ -153,6 +161,17 @@ export default function EntryForm({
         (!rotationCannotSupplyArtist || artistName.trim().length > 0)
       : artistName.trim().length > 0);
   const whosOnRole = WHOS_ON_ROLES.find((r) => r.role === entryType)?.role;
+  // The usual role's entry leads the role entries (Guest on a freeform set);
+  // the rest keep the menu's order.
+  const orderedRoles = [
+    ...WHOS_ON_ROLES.filter((r) => r.role === whosOn.defaultRole),
+    ...WHOS_ON_ROLES.filter((r) => r.role !== whosOn.defaultRole),
+  ];
+  const addDescribedBy = breakpointRejection
+    ? "breakpointGuardError"
+    : whosOn.refusal
+      ? "whosOnRefusal"
+      : undefined;
   const canSubmit =
     entryType === "track"
       ? canSubmitTrack
@@ -308,7 +327,7 @@ export default function EntryForm({
             <option value="track">Track</option>
             <option value="talkset">Talkset</option>
             {whosOn.available &&
-              WHOS_ON_ROLES.map((r) => (
+              orderedRoles.map((r) => (
                 <option key={r.role} value={r.role}>
                   {r.menu}
                 </option>
@@ -325,9 +344,7 @@ export default function EntryForm({
                 type="submit"
                 value="Add"
                 disabled={!isLive || isLoading || whosOn.isLoading || !canSubmit}
-                aria-describedby={
-                  breakpointRejection ? "breakpointGuardError" : undefined
-                }
+                aria-describedby={addDescribedBy}
               />
             </>
           )}
@@ -346,7 +363,11 @@ export default function EntryForm({
             </div>
           )}
           {whosOn.refusal && (
-            <div role="alert" className="validation-message visible">
+            <div
+              id="whosOnRefusal"
+              role="alert"
+              className="validation-message visible"
+            >
               {whosOn.refusal}
             </div>
           )}

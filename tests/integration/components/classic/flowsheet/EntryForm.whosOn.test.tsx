@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import type { SpecialtyShow } from "@wxyc/shared";
 import EntryForm from "@/src/components/experiences/classic/flowsheet/EntryForm";
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
@@ -25,13 +25,17 @@ type Program = Pick<SpecialtyShow, "default_spotlight_role"> | null;
 
 let specialty: Program;
 let showAnswers: boolean;
+let showPending: boolean;
 let posts: unknown[];
 let postRefusal: { status: number; body: Record<string, string> } | null;
 
 function serve() {
   server.use(
-    http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
-      HttpResponse.json({
+    http.get(`${TEST_BACKEND_URL}/flowsheet/`, async () => {
+      if (showPending) {
+        await delay("infinite");
+      }
+      return HttpResponse.json({
         entries: [
           {
             id: 100,
@@ -61,8 +65,8 @@ function serve() {
               },
             ]
           : [],
-      })
-    ),
+      });
+    }),
     http.post(`${TEST_BACKEND_URL}/flowsheet/`, async ({ request }) => {
       posts.push(await request.json());
       return postRefusal
@@ -88,6 +92,12 @@ async function renderForm() {
   return view;
 }
 
+// The role entries with the usual role first and the rest in menu order.
+const orderedRoles = (first: string) => [
+  ...WHOS_ON_ROLES.filter((r) => r.role === first),
+  ...WHOS_ON_ROLES.filter((r) => r.role !== first),
+];
+
 const addSelect = () => screen.getByLabelText("Add a") as HTMLSelectElement;
 const optionValues = () =>
   Array.from(addSelect().options).map((o) => o.value);
@@ -98,6 +108,7 @@ describe("Classic EntryForm — who's-on role entries", () => {
     vi.clearAllMocks();
     specialty = null;
     showAnswers = true;
+    showPending = false;
     posts = [];
     postRefusal = null;
     serve();
@@ -108,23 +119,93 @@ describe("Classic EntryForm — who's-on role entries", () => {
 
     await waitFor(() => expect(optionValues()).toHaveLength(8));
     expect(optionValues().slice(0, 2)).toEqual(["track", "talkset"]);
-    expect(optionValues().slice(2, 7)).toEqual(WHOS_ON_ROLES.map((r) => r.role));
+    expect([...optionValues().slice(2, 7)].sort()).toEqual(
+      WHOS_ON_ROLES.map((r) => r.role).sort()
+    );
     expect(optionValues()[7]).toBe("breakpoint");
-    expect(Array.from(addSelect().options).map((o) => o.text).slice(2, 7)).toEqual(
-      WHOS_ON_ROLES.map((r) => r.menu)
+  });
+
+  it("offers Guest first among the role entries on a freeform set, the rest in menu order", async () => {
+    await renderForm();
+
+    await waitFor(() => expect(optionValues()).toHaveLength(8));
+    expect(optionValues().slice(2, 7)).toEqual(
+      orderedRoles("guest").map((r) => r.role)
+    );
+    expect(optionValues()[2]).toBe("guest");
+    expect(Array.from(addSelect().options)[2].text).toBe(
+      WHOS_ON_ROLES.find((r) => r.role === "guest")?.menu
     );
   });
 
+  it.each(WHOS_ON_ROLES.map((r) => r.role))(
+    "offers %s first on a program whose usual role it is",
+    async (role) => {
+      specialty = { default_spotlight_role: role };
+      serve();
+      await renderForm();
+
+      await waitFor(() => expect(optionValues()).toHaveLength(8));
+      expect(optionValues().slice(2, 7)).toEqual(
+        orderedRoles(role).map((r) => r.role)
+      );
+      expect(optionValues()[2]).toBe(role);
+    }
+  );
+
   it.each([
     ["a program with no usual role", { default_spotlight_role: null }, true],
-    ["a show that has not answered", null, false],
+    ["a show that answered with no open show", null, false],
   ] as const)("offers no role entries on %s", async (_label, program, answers) => {
     specialty = program;
     showAnswers = answers;
     serve();
-    await renderForm();
+    const view = await renderForm();
 
+    const answered = flowsheetApi.endpoints.getCurrentShow.select(undefined)(
+      view.store.getState()
+    ).data;
+    expect(answered === null).toBe(!answers);
     expect(optionValues()).toEqual(["track", "talkset", "breakpoint"]);
+  });
+
+  it("offers no role entries while the open show has not answered", async () => {
+    showPending = true;
+    serve();
+    const view = renderWithProviders(<EntryForm />);
+
+    // Give the query time to start and, were it to answer, to be seen.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const state = flowsheetApi.endpoints.getCurrentShow.select(undefined)(
+      view.store.getState()
+    );
+    expect(state.data).toBeUndefined();
+    expect(state.status).toBe("pending");
+    expect(optionValues()).toEqual(["track", "talkset", "breakpoint"]);
+  });
+
+  it("withdraws the name field and Add when the show stops offering the roles while one is selected", async () => {
+    const view = await renderForm();
+    await waitFor(() => expect(optionValues()).toContain("guest"));
+    await userEvent.selectOptions(addSelect(), "guest");
+    await userEvent.type(nameField(), "Jessica Pratt");
+    expect(screen.getByRole("button", { name: "Add" })).toBeEnabled();
+
+    specialty = { default_spotlight_role: null };
+    serve();
+    await view.store.dispatch(
+      flowsheetApi.endpoints.getCurrentShow.initiate(undefined, { forceRefetch: true })
+    );
+
+    await waitFor(() =>
+      expect(optionValues()).toEqual(["track", "talkset", "breakpoint"])
+    );
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    // Back on Track: only the track form's own Add, still empty and disabled.
+    expect(screen.getByLabelText("Song")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Add" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Add" })).toBeDisabled();
+    expect(addSelect().value).toBe("track");
   });
 
   it("offers the roles on a program with a usual role", async () => {
@@ -186,7 +267,13 @@ describe("Classic EntryForm — who's-on role entries", () => {
     await userEvent.type(nameField(), "Jessica Pratt");
     await userEvent.click(screen.getByRole("button", { name: "Add" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(whosOnCopy.disabled);
+    const refusal = await screen.findByRole("alert");
+    expect(refusal).toHaveTextContent(whosOnCopy.disabled);
+    expect(screen.getByRole("button", { name: "Add" })).toHaveAttribute(
+      "aria-describedby",
+      refusal.id
+    );
+    expect(refusal.id).not.toBe("");
     const cached = flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
       view.store.getState()
     ).data;
