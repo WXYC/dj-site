@@ -13,7 +13,6 @@ import {
 import { useAppDispatch } from "@/lib/hooks";
 import {
   FlowsheetDragContext,
-  FlowsheetDragContextValue,
   FlowsheetMoveContext,
   FlowsheetMoveContextValue,
 } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
@@ -27,6 +26,7 @@ import {
 import FlowsheetSkeletonLoader from "@/src/components/experiences/modern/flowsheet/FlowsheetSkeletonLoader";
 import { useFlowsheet } from "@/src/hooks/flowsheetHooks";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
+import { useReorderableEntries } from "@/src/hooks/useReorderableEntries";
 import { Box, Table } from "@mui/joy";
 import { Reorder } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -59,52 +59,29 @@ export default function FlowsheetEntries() {
 
   const isMobile = useMediaQuery(FLOWSHEET_MOBILE_QUERY);
 
-  // Order shown mid-drag (null when settled), mirrored in refs alongside the
-  // other live values so the drag context below never changes identity —
-  // every row consumes it, and a per-crossover identity change would re-render
-  // them all through their memo.
-  const [draftOrder, setDraftOrder] = useState<FlowsheetEntry[] | null>(null);
-  const draftOrderRef = useRef<FlowsheetEntry[] | null>(null);
-  const snapshotRef = useRef<FlowsheetEntry[] | null>(null);
   const currentRef = useRef(current);
   currentRef.current = current;
   const switchEntriesRef = useRef(switchEntries);
   switchEntriesRef.current = switchEntries;
 
-  const handleReorder = useCallback((next: FlowsheetEntry[]) => {
-    draftOrderRef.current = next;
-    setDraftOrder(next);
-  }, []);
-
-  const dragContext = useMemo<FlowsheetDragContextValue>(
-    () => ({
-      // The frozen snapshot anchors the drag-end position math and keeps
-      // SSE-forced refetches from reshuffling rows mid-drag (polling is
-      // separately suspended via isDragging).
-      onEntryDragStart: () => {
-        snapshotRef.current = currentRef.current;
-        dispatch(flowsheetSlice.actions.setIsDragging(true));
-      },
-      // Fire-and-forget: the optimistic cache move settles the rows the
-      // moment the drag ends; a failed request reverts and resyncs.
-      onEntryDragEnd: (entry) => {
-        const snapshot = snapshotRef.current ?? currentRef.current;
-        const newPosition = computeDragTarget(
-          snapshot,
-          draftOrderRef.current ?? snapshot,
-          entry.id
-        );
-        if (newPosition !== null) {
-          switchEntriesRef.current(entry, newPosition);
-        }
-        snapshotRef.current = null;
-        draftOrderRef.current = null;
-        setDraftOrder(null);
-        dispatch(flowsheetSlice.actions.setIsDragging(false));
-      },
-    }),
+  // Fire-and-forget: the optimistic cache move settles the rows the moment the
+  // drag ends; a failed request reverts and resyncs. Polling is suspended
+  // while dragging so SSE-forced refetches don't reshuffle rows mid-drag.
+  const onDraggingChange = useCallback(
+    (dragging: boolean) => {
+      dispatch(flowsheetSlice.actions.setIsDragging(dragging));
+    },
     [dispatch]
   );
+  const {
+    shown: visualOrder,
+    onReorder,
+    dragContext,
+  } = useReorderableEntries({
+    entries: current,
+    reorder: switchEntries,
+    onDraggingChange,
+  });
 
   // Mobile reorders one step at a time (up/down buttons instead of drag):
   // a one-step move is just a drag whose final order is the adjacent swap.
@@ -165,8 +142,6 @@ export default function FlowsheetEntries() {
     );
   }
 
-  const visualOrder = draftOrder ?? snapshotRef.current ?? current;
-
   return (
     <Table borderAxis="none" sx={FLOWSHEET_TABLE_SX}>
       <thead
@@ -180,7 +155,7 @@ export default function FlowsheetEntries() {
         <Reorder.Group
           values={visualOrder}
           axis="y"
-          onReorder={handleReorder}
+          onReorder={onReorder}
           as="tbody"
         >
           {visualOrder.map((entry) => (
