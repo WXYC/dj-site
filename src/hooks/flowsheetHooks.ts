@@ -35,7 +35,6 @@ import { safeCapture } from "@/lib/posthog";
 import { useFlowsheetPollingInterval } from "./useSSEConnection";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
 import { backendWriteErrorMessage } from "@/lib/backend-error-message";
-import { ONE_TAP_TAG_REFUSED_SENTENCE } from "@/lib/features/specialty/copy";
 import {
   FlowsheetEntry,
   FlowsheetQuery,
@@ -330,14 +329,9 @@ export const useShowControl = () => {
     } catch (err) {
       const conflict = readShowAlreadyOpen(err);
       if (conflict) return { status: "conflict", handoff: conflict };
-      // Classic sign-on sends a title-only tag (`{ show_name }`) with no
-      // program, so a 400 there is not about a program. Same test as joinShow's
-      // expected-error guard in lib/features/flowsheet/api.ts.
-      if (
-        tag?.specialty_id !== undefined &&
-        (err as { status?: unknown }).status === 400
-      ) {
-        return { status: "tag-refused", message: ONE_TAP_TAG_REFUSED_SENTENCE };
+      const { status, sentence } = err as { status?: unknown; sentence?: string };
+      if (status === 400 && sentence) {
+        return { status: "tag-refused", message: sentence };
       }
       return {
         status: "error",

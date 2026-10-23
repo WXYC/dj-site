@@ -12,6 +12,13 @@ export const CLOSED_SHOW_SENTENCE =
 export const NOT_ON_SHOW_SENTENCE =
   "The DJ site can't change this row: it belongs to a show on the air that you are not on.";
 
+export type RefusalOptions<Arg = unknown> = {
+  /** Words every 400; a function reads the mutation's argument. Omit to leave a 400 to general handling. */
+  badRequest?: string | ((arg: Arg) => string | undefined);
+  /** More 403 `code`s the caller words itself; `closed_show` is always worded. */
+  codes?: Record<string, string>;
+};
+
 /**
  * The one sentence a refused write is shown as, or null when the refusal
  * belongs to the site's general handling. A 403 is told apart by the `code` in
@@ -21,23 +28,36 @@ export const NOT_ON_SHOW_SENTENCE =
  */
 export function refusalSentence(
   error: { status?: unknown; data?: unknown },
-  badRequest: string
+  badRequest?: string,
+  codes: Record<string, string> = {}
 ): string | null {
-  const code = (error.data as { code?: unknown } | null | undefined)?.code;
-  if (error.status === 403 && code === "closed_show") {
-    return CLOSED_SHOW_SENTENCE;
+  if (error.status === 400) {
+    return badRequest ?? null;
   }
-  return error.status === 400 ? badRequest : null;
+  if (error.status !== 403) {
+    return null;
+  }
+  const code = (error.data as { code?: unknown } | null | undefined)?.code;
+  if (typeof code !== "string") {
+    return null;
+  }
+  return { closed_show: CLOSED_SHOW_SENTENCE, ...codes }[code] ?? null;
 }
 
 // A refusal the caller words itself is marked expected, so the global error
 // toast stays quiet instead of repeating it in the server's words.
-export const markRefusal = (badRequest: string) => (error: FetchBaseQueryError) => {
-  const sentence = refusalSentence(error, badRequest);
-  return sentence ? { ...error, expected: true, sentence } : error;
-};
+export const markRefusal =
+  <Arg>({ badRequest, codes }: RefusalOptions<Arg> = {}) =>
+  (error: FetchBaseQueryError, _meta: unknown, arg: Arg) => {
+    const sentence = refusalSentence(
+      error,
+      typeof badRequest === "function" ? badRequest(arg) : badRequest,
+      codes
+    );
+    return sentence ? { ...error, expected: true, sentence } : error;
+  };
 
-const markPastShowRefusal = markRefusal(NOT_ON_SHOW_SENTENCE);
+const markPastShowRefusal = markRefusal({ badRequest: NOT_ON_SHOW_SENTENCE });
 
 export const showPlaylistApi = createApi({
   reducerPath: "showPlaylistApi",

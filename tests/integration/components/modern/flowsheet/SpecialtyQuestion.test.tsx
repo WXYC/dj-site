@@ -7,6 +7,7 @@ import { flowsheetApi } from "@/lib/features/flowsheet/api";
 import { CLOSED_SHOW_SENTENCE } from "@/lib/features/show-playlist/api";
 import {
   REJECTED_PROGRAM_SENTENCE,
+  SHOW_DETAILS_REFUSED_SENTENCE,
   specialtyCopy,
 } from "@/lib/features/specialty/copy";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
@@ -230,6 +231,18 @@ describe("SpecialtyQuestion", () => {
       ])
     );
     expect(screen.queryByLabelText("Title for this week")).not.toBeInTheDocument();
+  });
+
+  it("words a refused title save as the show-details sentence, not the program one", async () => {
+    const { user } = await renderQuestion();
+
+    await user.click(yes("Orange County Special"));
+    await user.type(await screen.findByLabelText("Title for this week"), "Cat Power night");
+    patchRefusal = { status: 400, body: { message: "Bad show_name" } };
+    await user.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(SHOW_DETAILS_REFUSED_SENTENCE);
+    expect(toastError).not.toHaveBeenCalled();
   });
 
   it("sends nothing more when Done closes an empty title", async () => {

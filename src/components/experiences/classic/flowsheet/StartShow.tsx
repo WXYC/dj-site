@@ -207,6 +207,7 @@ export default function StartShow() {
                       setUserEditedDjHandle(true);
                       setDjHandle(e.target.value);
                     }}
+                    maxLength={255}
                     placeholder="(optional)"
                   />
                   &nbsp;(optional)

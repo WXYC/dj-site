@@ -3,10 +3,6 @@ import {
   useAddToFlowsheetMutation,
   useGetCurrentShowQuery,
 } from "@/lib/features/flowsheet/api";
-import {
-  isSpotlightDisabled,
-  whosOnCopy,
-} from "@/lib/features/flowsheet/whos-on-copy";
 import type { SpotlightRole } from "@wxyc/shared";
 
 /**
@@ -51,7 +47,7 @@ export function useWhosOn() {
         setRefusal(null);
         return true;
       } catch (error) {
-        setRefusal(isSpotlightDisabled(error) ? whosOnCopy.disabled : null);
+        setRefusal((error as { sentence?: string }).sentence ?? null);
         return false;
       }
     },

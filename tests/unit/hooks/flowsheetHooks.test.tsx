@@ -453,6 +453,8 @@ describe("flowsheetHooks", () => {
           Promise.reject({
             status: 400,
             data: { message: "Bad Request: specialty_id is unknown or names a retired specialty show" },
+            // joinShow words a tagged press's 400; an untagged one carries none
+            ...(tag && "specialty_id" in tag && { sentence: ONE_TAP_TAG_REFUSED_SENTENCE }),
           }),
       });
       const { result } = renderHook(() => useShowControl(), {
