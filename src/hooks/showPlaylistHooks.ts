@@ -14,6 +14,7 @@ import {
   useUpdateShowEntryMutation,
 } from "@/lib/features/show-playlist/api";
 import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
+import { specialtySubtitle } from "@/lib/features/specialty/subtitle";
 import type { ShowPlaylistEntryWire } from "@/lib/features/show-playlist/types";
 import { v2ToRangeShape } from "@/lib/features/show-playlist/wire";
 import {
@@ -113,7 +114,7 @@ export function useShowPlaylist(showId: number | null): ShowPlaylist {
         showName ??
         djName ??
         "Unattributed show",
-      subtitle: specialty && showName !== specialty.name ? showName : null,
+      subtitle: specialtySubtitle(specialty, showName),
       specialty,
       djName,
       day: start ? formatStationDateTime(start).day : "",

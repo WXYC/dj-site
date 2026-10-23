@@ -1,14 +1,19 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import type { SpecialtyShow } from "@wxyc/shared";
 import SetTags from "@/src/components/experiences/modern/flowsheet/SetTags";
 import StartShowIcon from "@/src/components/experiences/modern/flowsheet/Entries/StartShowIcon";
+import { MarkerEntryArtwork } from "@/src/components/experiences/modern/flowsheet/Entries/EntryArtwork";
 import { specialtyCopy } from "@/lib/features/specialty/copy";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { SEED_CATALOG } from "@/tests/fixtures/specialty";
 
 const ORANGE_COUNTY = SEED_CATALOG[0];
+const WITH_ARTWORK: SpecialtyShow = {
+  ...ORANGE_COUNTY,
+  artwork: { square_url: "https://example.org/ocs.png" } as SpecialtyShow["artwork"],
+};
 
 type OpenShow = {
   id: number;
@@ -80,6 +85,13 @@ describe("SetTags", () => {
     expect(screen.queryByTestId("specialty-tile")).not.toBeInTheDocument();
   });
 
+  it("does not render the artwork tile in the tag either", async () => {
+    serve(open({ specialty: WITH_ARTWORK }));
+    const view = renderWithProviders(<SetTags />);
+    await screen.findByText(WITH_ARTWORK.name);
+    expect(view.container.querySelector("img")).toBeNull();
+  });
+
   it.each([
     ["no open show", null, true],
     ["on_air absent", open({}), false],
@@ -113,5 +125,31 @@ describe("StartShowIcon", () => {
     await settle(view);
     expect(screen.getByTestId("HeadphonesIcon")).toBeInTheDocument();
     expect(screen.queryByTestId("specialty-tile")).not.toBeInTheDocument();
+  });
+
+  it("swaps the headphones for the artwork image when the program has artwork", async () => {
+    serve(open({ specialty: WITH_ARTWORK }));
+    const view = renderWithProviders(<StartShowIcon showId={7} />);
+    await waitFor(() => expect(view.container.querySelector("img")).not.toBeNull());
+    expect(view.container.querySelector("img")).toHaveAttribute("src", "https://example.org/ocs.png");
+    expect(screen.queryByTestId("HeadphonesIcon")).not.toBeInTheDocument();
+  });
+
+  it("keeps the tile out of invalid HTML nesting inside the start row's artwork cell", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      serve(open({ specialty: ORANGE_COUNTY }));
+      const view = renderWithProviders(
+        <MarkerEntryArtwork icon={<StartShowIcon showId={7} />} />
+      );
+      await screen.findByTestId("specialty-tile");
+      expect(view.container.querySelector("p div")).toBeNull();
+      const nestingWarnings = consoleError.mock.calls.filter((args) =>
+        args.some((arg) => String(arg).includes("cannot be a descendant of <p>"))
+      );
+      expect(nestingWarnings).toHaveLength(0);
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });

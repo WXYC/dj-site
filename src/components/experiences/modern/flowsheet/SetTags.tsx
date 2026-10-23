@@ -3,6 +3,7 @@
 import { Chip, Stack, Typography } from "@mui/joy";
 import { useGetCurrentShowQuery } from "@/lib/features/flowsheet/api";
 import { specialtyCopy } from "@/lib/features/specialty/copy";
+import { specialtySubtitle } from "@/lib/features/specialty/subtitle";
 
 /**
  * The open set's tag under the flowsheet header: Freeform when untagged, else
@@ -24,12 +25,12 @@ export default function SetTags() {
     );
   }
 
+  const subtitle = specialtySubtitle(show.specialty, show.show_name);
+
   return (
     <Stack sx={{ mb: 1 }}>
       <Typography level="title-md">{show.specialty.name}</Typography>
-      {show.show_name && show.show_name !== show.specialty.name && (
-        <Typography level="body-sm">{show.show_name}</Typography>
-      )}
+      {subtitle && <Typography level="body-sm">{subtitle}</Typography>}
     </Stack>
   );
 }
