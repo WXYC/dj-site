@@ -69,6 +69,16 @@ function renderDialog(
 }
 
 const programSelect = () => screen.findByRole("combobox", { name: /program/i });
+
+/**
+ * Opens the program select and waits for a named program to be listed. The
+ * select renders before the catalog request resolves, so an assertion that
+ * the hint is absent only means something once the catalog has loaded.
+ */
+async function catalogLoaded(name: string) {
+  await userEvent.click(await programSelect());
+  await screen.findByRole("option", { name });
+}
 const titleInput = () => screen.getByRole("textbox", { name: /title/i });
 const save = () => userEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
@@ -211,13 +221,13 @@ describe("EditShowDetailsDialog", () => {
 
     it("shows nothing when the show started outside every slot", async () => {
       renderDialog({ startTime: MONDAY_MORNING });
-      await programSelect();
+      await catalogLoaded(ORANGE_COUNTY.name);
       expect(screen.queryByText(/usually airs/)).not.toBeInTheDocument();
     });
 
     it("shows nothing when the show is already tagged with the matching program", async () => {
       renderDialog({ startTime: SUNDAY_NOON, specialty: ORANGE_COUNTY });
-      await programSelect();
+      await catalogLoaded(HYPERLOCAL.name);
       expect(screen.queryByText(/usually airs/)).not.toBeInTheDocument();
     });
 
@@ -227,8 +237,10 @@ describe("EditShowDetailsDialog", () => {
     });
 
     it("never names a retired program", async () => {
-      renderDialog({ startTime: SUNDAY_NOON }, [RETIRED]);
-      await programSelect();
+      // HyperLocal is active and outside Sunday noon, so listing it proves the
+      // catalog loaded while the retired program is the only slot match.
+      renderDialog({ startTime: SUNDAY_NOON }, [RETIRED, HYPERLOCAL]);
+      await catalogLoaded(HYPERLOCAL.name);
       expect(screen.queryByText(/usually airs/)).not.toBeInTheDocument();
     });
 
