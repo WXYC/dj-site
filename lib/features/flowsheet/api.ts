@@ -26,7 +26,7 @@ import {
   type JoinIntent,
   type JoinShowResult,
 } from "./go-live-handoff";
-import { markRefusal } from "../show-playlist/api";
+import { markRefusal, showPlaylistApi } from "../show-playlist/api";
 import {
   ONE_TAP_TAG_REFUSED_SENTENCE,
   REJECTED_PROGRAM_SENTENCE,
@@ -154,7 +154,19 @@ export const flowsheetApi = createApi({
             ? SHOW_DETAILS_REFUSED_SENTENCE
             : REJECTED_PROGRAM_SENTENCE,
       }),
-      invalidatesTags: ["Flowsheet"],
+      // The open-shows list carries each row's title, and the Previous Sets
+      // header carries the program, so a save must refresh both for every caller.
+      invalidatesTags: ["Flowsheet", "OpenShows"],
+      async onQueryStarted({ showId }, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+        } catch {
+          return;
+        }
+        dispatch(
+          showPlaylistApi.util.invalidateTags([{ type: "ShowPlaylist", id: showId }])
+        );
+      },
     }),
     switchEntries: builder.mutation<undefined, FlowsheetSwitchParams>({
       query: (params) => ({

@@ -13,10 +13,8 @@ import {
 } from "@mui/joy";
 import type { SpecialtyShowRef } from "@wxyc/shared";
 import { useUpdateShowMutation } from "@/lib/features/flowsheet/api";
-import { showPlaylistApi } from "@/lib/features/show-playlist/api";
 import { useGetSpecialtyShowsQuery } from "@/lib/features/specialty/api";
 import { specialtyCopy } from "@/lib/features/specialty/copy";
-import { useAppDispatch } from "@/lib/hooks";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
 
 const NONE = "none";
@@ -40,7 +38,6 @@ export default function EditShowDetailsDialog({
   showName: string | null | undefined;
   onClose: () => void;
 }) {
-  const dispatch = useAppDispatch();
   const { data: catalog = [] } = useGetSpecialtyShowsQuery();
   const [updateShow, { isLoading }] = useUpdateShowMutation();
   const [choice, setChoice] = useState(specialty ? String(specialty.id) : NONE);
@@ -69,7 +66,6 @@ export default function EditShowDetailsDialog({
     setRefusal(null);
     try {
       await updateShow({ showId, ...body }).unwrap();
-      dispatch(showPlaylistApi.util.invalidateTags([{ type: "ShowPlaylist", id: showId }]));
       onClose();
     } catch (error) {
       // Null is a refusal for the site's general handling, which has toasted it.
