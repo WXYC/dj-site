@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { renderWithProviders as render } from "@/tests/helpers";
 import ShowEntriesPanel from "@/src/components/experiences/modern/schedule-week/ShowEntriesPanel";
 import type { FlowsheetRangeShow } from "@wxyc/shared";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
+import { useScrollToShowEntry } from "@/src/hooks/showPlaylistHooks";
 
 // The drill-in renders the live flowsheet's own row elements, so the row's
 // live-show hooks are the one thing that would otherwise decide whether an
@@ -304,6 +305,52 @@ describe("ShowEntriesPanel", () => {
       expect(screen.queryByRole("button", { name: /^Move (up|down)$/ })).toBeNull();
       expect(screen.queryByLabelText("Edit entry")).toBeNull();
       expect(screen.queryByTestId("flowsheet-remove-40")).toBeNull();
+    });
+
+    // The table marks and anchors the named play at every width, so a search
+    // deep link on a phone has to land on a marked card as well. The anchor is
+    // the same `entry-<id>` the table rows carry, and the hook that scrolls to
+    // it finds the row by that id.
+    describe("highlighted card", () => {
+      beforeEach(() => {
+        isMobile.mockReturnValue(true);
+      });
+
+      it("marks the named play and anchors it for the fragment", () => {
+        render(panel([entry({ id: 70 }), entry({ id: 71 })], 71));
+
+        expect(screen.queryByRole("table")).toBeNull();
+        expect(row(71)).toHaveClass("row-highlighted");
+        expect(row(71)).toHaveAttribute("id", "entry-71");
+        expect(row(70)).not.toHaveClass("row-highlighted");
+        expect(row(70)).not.toHaveAttribute("id");
+      });
+
+      it("anchors a marker card too, so a fragment can never point at nothing", () => {
+        render(
+          panel(
+            [entry({ id: 72, entry_type: "talkset", message: "TALKSET" })],
+            72,
+          ),
+        );
+
+        expect(row(72)).toHaveClass("row-highlighted");
+        expect(row(72)).toHaveAttribute("id", "entry-72");
+      });
+
+      it("is the element the scroll hook brings into view", async () => {
+        const scrollIntoView = vi.fn();
+        Element.prototype.scrollIntoView = scrollIntoView;
+
+        function Harness() {
+          useScrollToShowEntry(73, 2);
+          return panel([entry({ id: 73 }), entry({ id: 74 })], 73);
+        }
+        render(<Harness />);
+
+        await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1));
+        expect(scrollIntoView.mock.contexts[0]).toBe(row(73));
+      });
     });
   });
 

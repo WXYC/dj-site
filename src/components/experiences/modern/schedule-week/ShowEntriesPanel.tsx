@@ -5,6 +5,7 @@ import { Reorder } from "motion/react";
 import { Box, CircularProgress, Sheet, Table, Typography } from "@mui/joy";
 import type { FlowsheetRangeShow } from "@wxyc/shared";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
+import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
 import { toArchiveStreamRow } from "@/lib/features/flowsheet/stream-row";
 import { useEntryActions } from "@/src/hooks/entryActions";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
@@ -101,16 +102,37 @@ export default function ShowEntriesPanel({
       {rows.length > 0 && isMobile && (
         <FlowsheetMoveContext.Provider value={moveContext}>
           <Box sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 1.5 }}>
-            {settled.map((entry, index) => (
-              <MobileEntry
-                key={entry.id}
-                entry={entry}
-                playing={false}
-                readOnly={!editable}
-                canMoveUp={index > firstDraggable}
-                canMoveDown={index < lastDraggable}
-              />
-            ))}
+            {settled.map((entry, index) => {
+              const highlighted = entry.id === highlightedEntryId;
+              // The table rows carry the anchor id and the highlight mark on
+              // the row itself; a card has no row, so the wrapper carries the
+              // same ones. As on the table, only the named play gets the id,
+              // so two sets in one document never collide.
+              return (
+                <Box
+                  key={entry.id}
+                  id={highlighted ? entryAnchorId(entry.id) : undefined}
+                  data-testid={`flowsheet-entry-${entry.id}`}
+                  className={highlighted ? "row-highlighted" : undefined}
+                  sx={{
+                    borderRadius: "xl",
+                    "&.row-highlighted": {
+                      outline: "2px solid",
+                      outlineColor: "var(--joy-palette-danger-solidBg)",
+                      outlineOffset: "2px",
+                    },
+                  }}
+                >
+                  <MobileEntry
+                    entry={entry}
+                    playing={false}
+                    readOnly={!editable}
+                    canMoveUp={index > firstDraggable}
+                    canMoveDown={index < lastDraggable}
+                  />
+                </Box>
+              );
+            })}
           </Box>
         </FlowsheetMoveContext.Provider>
       )}
