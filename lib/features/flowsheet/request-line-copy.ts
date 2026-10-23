@@ -32,7 +32,7 @@ export const requestLineCopy = {
     if (role === "reader") {
       return "Closed while a reader is on.";
     }
-    return "Closed while a guest is on.";
+    return "Closed for this part of the set.";
   },
 };
 
