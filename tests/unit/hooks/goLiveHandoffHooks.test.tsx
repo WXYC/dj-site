@@ -647,6 +647,50 @@ describe("useGoLiveHandoff — a refused program tag", () => {
     expect(result.current.refusal).toBeNull();
   });
 
+  // A refusal and an open prompt can coexist only through a race: press A has
+  // no open show in the cache and is still awaiting the server when the roster
+  // changes and press B opens the prompt, then A's 400 lands.
+  it("clears a held refusal when a decision starts", async () => {
+    let refuseFirstPress: (outcome: GoLiveOutcome) => void = () => {};
+    const goLive = vi
+      .fn<(...args: unknown[]) => Promise<GoLiveOutcome>>()
+      .mockImplementationOnce(
+        () => new Promise<GoLiveOutcome>((resolve) => (refuseFirstPress = resolve)),
+      )
+      .mockResolvedValue({ status: "ok" });
+    const store = createTestStore();
+    await primeCaches(store);
+    const { result } = renderHook(() => useGoLiveHandoff(goLive), {
+      wrapper: wrapperFor(store),
+    });
+
+    let firstPress: Promise<void> = Promise.resolve();
+    act(() => {
+      firstPress = result.current.requestGoLive(undefined, ONE_TAP);
+    });
+    await primeCaches(store, {
+      onAir: [createTestOnAirDJResponse({ id: "dj-sue-1", dj_name: "dj sue" })],
+      entries: [
+        createTestV2TrackEntry({ show_id: TEST_ENTITY_IDS.SHOW.CURRENT_SHOW }),
+      ],
+    });
+    await act(async () => {
+      await result.current.requestGoLive();
+    });
+    await act(async () => {
+      refuseFirstPress({ status: "tag-refused", message: ONE_TAP_TAG_REFUSED_SENTENCE });
+      await firstPress;
+    });
+    expect(result.current.prompt).not.toBeNull();
+    expect(result.current.refusal).toBe(ONE_TAP_TAG_REFUSED_SENTENCE);
+
+    await act(async () => {
+      await result.current.decide("join");
+    });
+
+    expect(result.current.refusal).toBeNull();
+  });
+
   it("holds the sentence when a takeover decision is refused, and closes the prompt", async () => {
     const goLive = vi
       .fn<(...args: unknown[]) => Promise<GoLiveOutcome>>()
