@@ -93,7 +93,8 @@ describe("ShowView mobile cards", () => {
     ["station manager", Authorization.SM, ended, true],
     ["DJ", Authorization.DJ, ended, false],
     ["DJ on the air", Authorization.DJ, onAir, true],
-    ["music director not on the air show", Authorization.MD, show({ end_time: null }), false],
+    ["DJ not on the air show", Authorization.DJ, show({ end_time: null }), false],
+    ["music director not on the air show", Authorization.MD, show({ end_time: null }), true],
   ])("a %s sees move buttons: %s", async (_role, authority, body, offered) => {
     mockAuth.authority = authority;
     servePlaylist(body);
