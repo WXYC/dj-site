@@ -1,20 +1,10 @@
 "use client";
 
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import {
-  computeDragTarget,
-  moveAdjacent,
-} from "@/lib/features/flowsheet/reorder";
-import {
-  FlowsheetEntry,
-  isFlowsheetEndShowEntry,
-  isFlowsheetStartShowEntry,
-} from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import {
   FlowsheetDragContext,
   FlowsheetMoveContext,
-  FlowsheetMoveContextValue,
 } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import MobileEntry from "@/src/components/experiences/modern/flowsheet/Entries/MobileEntry";
@@ -29,15 +19,7 @@ import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { useReorderableEntries } from "@/src/hooks/useReorderableEntries";
 import { Box, Table } from "@mui/joy";
 import { Reorder } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-// Show start/end markers bound the reorderable region: they're never
-// draggable, and no entry may be moved across one (a song ordered before the
-// show started / after it ended is nonsense). Desktop drag enforces this for
-// free — markers render outside the Reorder tree, so motion never swaps them
-// — but the mobile up/down path walks the raw array and must exclude them.
-const isMarkerEntry = (entry: FlowsheetEntry) =>
-  isFlowsheetStartShowEntry(entry) || isFlowsheetEndShowEntry(entry);
+import { useCallback, useEffect, useState } from "react";
 
 export default function FlowsheetEntries() {
   const dispatch = useAppDispatch();
@@ -59,11 +41,6 @@ export default function FlowsheetEntries() {
 
   const isMobile = useMediaQuery(FLOWSHEET_MOBILE_QUERY);
 
-  const currentRef = useRef(current);
-  currentRef.current = current;
-  const switchEntriesRef = useRef(switchEntries);
-  switchEntriesRef.current = switchEntries;
-
   // Fire-and-forget: the optimistic cache move settles the rows the moment the
   // drag ends; a failed request reverts and resyncs. Polling is suspended
   // while dragging so SSE-forced refetches don't reshuffle rows mid-drag.
@@ -77,45 +54,18 @@ export default function FlowsheetEntries() {
     shown: visualOrder,
     onReorder,
     dragContext,
+    moveContext,
+    firstDraggable,
+    lastDraggable,
   } = useReorderableEntries({
     entries: current,
     reorder: switchEntries,
     onDraggingChange,
   });
 
-  // Mobile reorders one step at a time (up/down buttons instead of drag):
-  // a one-step move is just a drag whose final order is the adjacent swap.
-  const moveContext = useMemo<FlowsheetMoveContextValue>(
-    () => ({
-      moveEntry: (entry, direction) => {
-        const current = currentRef.current;
-        const index = current.findIndex((e) => e.id === entry.id);
-        if (index === -1) return;
-        // Never swap an entry past a show marker (see isMarkerEntry). The
-        // buttons are already disabled at that edge, but the guard keeps the
-        // invariant in the data path too.
-        const neighbor = current[direction === "up" ? index - 1 : index + 1];
-        if (!neighbor || isMarkerEntry(neighbor)) return;
-        const next = moveAdjacent(current, entry.id, direction);
-        if (!next) return;
-        const newPosition = computeDragTarget(current, next, entry.id);
-        if (newPosition !== null) {
-          switchEntriesRef.current(entry, newPosition);
-        }
-      },
-    }),
-    []
-  );
-
   if (!mounted || loading) {
     return <FlowsheetSkeletonLoader count={10} />;
   }
-
-  // Reorder bounds are the first/last draggable row, not the array edges:
-  // a show marker sits at the bottom while live, and the oldest song must
-  // stop above it rather than swap past it.
-  const firstDraggable = current.findIndex((e) => !isMarkerEntry(e));
-  const lastDraggable = current.findLastIndex((e) => !isMarkerEntry(e));
 
   if (isMobile) {
     return (

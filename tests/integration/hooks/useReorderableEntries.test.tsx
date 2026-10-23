@@ -82,4 +82,71 @@ describe("useReorderableEntries", () => {
     act(() => result.current.dragContext.onEntryDragEnd(A));
     expect(onDraggingChange).toHaveBeenLastCalledWith(false);
   });
+
+  describe("move context and bounds", () => {
+    const marker = (id: number, isStart: boolean) =>
+      ({ id, play_order: id, dj_name: "DJ", isStart }) as unknown as FlowsheetEntry;
+    const END = marker(10, false);
+    const START = marker(11, true);
+
+    it.each([
+      ["down", A, 2],
+      ["up", B, 1],
+    ] as const)("moves an entry %s one step through the action", (direction, moved, target) => {
+      const reorder = vi.fn();
+      const { result } = renderHook(() =>
+        useReorderableEntries({ entries: [A, B, C], reorder })
+      );
+
+      result.current.moveContext.moveEntry(moved, direction);
+
+      expect(reorder).toHaveBeenCalledWith(moved, target);
+    });
+
+    it("ignores an entry that is not in the list", () => {
+      const reorder = vi.fn();
+      const { result } = renderHook(() =>
+        useReorderableEntries({ entries: [A, B], reorder })
+      );
+
+      result.current.moveContext.moveEntry(C, "up");
+
+      expect(reorder).not.toHaveBeenCalled();
+    });
+
+    it("never moves an entry past a show marker or off the list edge", () => {
+      const reorder = vi.fn();
+      const { result } = renderHook(() =>
+        useReorderableEntries({ entries: [A, B, END], reorder })
+      );
+
+      result.current.moveContext.moveEntry(B, "down");
+      result.current.moveContext.moveEntry(A, "up");
+
+      expect(reorder).not.toHaveBeenCalled();
+    });
+
+    it("bounds the reorder range to the rows between the markers", () => {
+      const { result } = renderHook(() =>
+        useReorderableEntries({ entries: [START, A, B, END], reorder: vi.fn() })
+      );
+
+      expect(result.current.firstDraggable).toBe(1);
+      expect(result.current.lastDraggable).toBe(2);
+    });
+
+    it("reads the latest entries without changing the move context's identity", () => {
+      const reorder = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ entries }) => useReorderableEntries({ entries, reorder }),
+        { initialProps: { entries: [A, B] } }
+      );
+      const first = result.current.moveContext;
+      rerender({ entries: [B, A, C] });
+
+      expect(result.current.moveContext).toBe(first);
+      result.current.moveContext.moveEntry(C, "up");
+      expect(reorder).toHaveBeenCalledWith(C, 1);
+    });
+  });
 });
