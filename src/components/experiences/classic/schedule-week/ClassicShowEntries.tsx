@@ -25,14 +25,18 @@ const MARKER_SPAN = COLUMN_COUNT - 1;
 const isMarker = (entry: FlowsheetRangeEntryWire) =>
   entry.entry_type != null && entry.entry_type !== "track";
 
-// The row classes tubafrenzy's `.entry-table` family styles, assigned exactly
-// as flowsheetRadioShowDisplayPublic.jsp assigns them: talksets get their own
+// The row classes tubafrenzy's `.entry-table` family styles, assigned as
+// flowsheetRadioShowDisplayPublic.jsp assigns them: talksets get their own
 // row, every other non-track marker is a breakpoint row, and the zebra phase
 // comes from the entry's absolute position — markers included — rather than
-// from a count of the tracks alone.
+// from a count of the tracks alone. The one departure is the DJ site's own: a
+// who's-on (spotlight) row, which the JSP never had, gets a third class,
+// `spotlight-row`, rather than falling through to `breakpoint-row`.
 const rowClass = (entry: FlowsheetRangeEntryWire, index: number) => {
   if (isMarker(entry)) {
-    if (entry.entry_type === "talkset") return "talkset-row";
+    if (entry.entry_type === "talkset") {
+      return "talkset-row";
+    }
     return entry.entry_type === "spotlight" ? "spotlight-row" : "breakpoint-row";
   }
   return `entry-row ${index % 2 === 0 ? "entry-row-even" : "entry-row-odd"}`;
