@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { http, HttpResponse, delay } from "msw";
 
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
+import { showPlaylistApi } from "@/lib/features/show-playlist/api";
+import { whosOnCopy } from "@/lib/features/flowsheet/whos-on-copy";
 import { createTestV2SpotlightEntry } from "@/tests/fixtures/fixtures";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -92,5 +94,94 @@ describe("updateFlowsheet on a who's-on row", () => {
       expect(rowMessage(store)?.spotlight_name).toBe("Porch Static");
     });
     expect(rowMessage(store)?.message).toBe("Porch Static live in the studio");
+  });
+});
+
+describe("a refused write to a who's-on row", () => {
+  const refuse = (code?: string) =>
+    http.patch(`${TEST_BACKEND_URL}/flowsheet/`, () =>
+      HttpResponse.json(
+        { ...(code ? { code } : {}), message: "Spotlight entries are not enabled" },
+        { status: 403 }
+      )
+    );
+
+  const rejection = async (
+    run: (store: ReturnType<typeof createTestStore>) => Promise<unknown>
+  ) => {
+    const store = createTestStore();
+    try {
+      await run(store);
+    } catch (error) {
+      return error as { expected?: boolean; sentence?: string };
+    }
+    return undefined;
+  };
+
+  it.each([
+    [
+      "live row",
+      (store: ReturnType<typeof createTestStore>) =>
+        store
+          .dispatch(
+            flowsheetApi.endpoints.updateFlowsheet.initiate({
+              entry_id: 7100,
+              data: { spotlight_name: "Porch Static Duo" },
+            })
+          )
+          .unwrap(),
+    ],
+    [
+      "ended-show row",
+      (store: ReturnType<typeof createTestStore>) =>
+        store
+          .dispatch(
+            showPlaylistApi.endpoints.updateShowEntry.initiate({
+              showId: 9,
+              entry_id: 7100,
+              data: { spotlight_name: "Porch Static Duo" },
+            })
+          )
+          .unwrap(),
+    ],
+  ])("words a spotlight_disabled rename on a %s", async (_label, run) => {
+    server.use(refuse("spotlight_disabled"));
+    const error = await rejection(run);
+    expect(error?.expected).toBe(true);
+    expect(error?.sentence).toBe(whosOnCopy.disabled);
+  });
+
+  it.each([
+    ["no code", undefined],
+    ["spotlight_disabled", "spotlight_disabled"],
+  ])("leaves a live song-field edit refused with %s to the global toast", async (_l, code) => {
+    server.use(refuse(code));
+    const error = await rejection((store) =>
+      store
+        .dispatch(
+          flowsheetApi.endpoints.updateFlowsheet.initiate({
+            entry_id: 7100,
+            data: { track_title: "la paradoja" },
+          })
+        )
+        .unwrap()
+    );
+    expect(error?.expected).toBeUndefined();
+    expect(error?.sentence).toBeUndefined();
+  });
+
+  it("still words a closed_show refusal of a live song-field edit as before", async () => {
+    server.use(refuse("closed_show"));
+    const error = await rejection((store) =>
+      store
+        .dispatch(
+          flowsheetApi.endpoints.updateFlowsheet.initiate({
+            entry_id: 7100,
+            data: { track_title: "la paradoja" },
+          })
+        )
+        .unwrap()
+    );
+    expect(error?.sentence).toBeUndefined();
   });
 });

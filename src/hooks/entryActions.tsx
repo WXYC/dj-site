@@ -8,7 +8,10 @@ import type {
 import { useFlowsheetActions } from "@/src/hooks/flowsheetHooks";
 
 export type EntryActions = {
-  updateFlowsheet: (params: FlowsheetUpdateParams) => void;
+  /** Resolves to the sentence of a refusal the caller should word, if any. */
+  updateFlowsheet: (
+    params: FlowsheetUpdateParams
+  ) => Promise<string | undefined> | void;
   removeFromFlowsheet: (entryId: number) => void;
   /** Moves the entry to `newPosition`, a `play_order` in its own show. */
   reorder: (entry: FlowsheetEntry, newPosition: number) => void;

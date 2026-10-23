@@ -42,12 +42,13 @@ function rowFor(
 function setUp(opts: {
   live: boolean;
   pastShow: boolean;
+  answer?: string;
   role?: "performer" | "dj" | "guest";
   showId?: number;
 }) {
   mockUseShowControl.mockReturnValue({ live: opts.live, currentShow: CURRENT_SHOW });
-  const liveUpdate = vi.fn();
-  const pastUpdate = vi.fn();
+  const liveUpdate = vi.fn().mockResolvedValue(opts.answer);
+  const pastUpdate = vi.fn().mockResolvedValue(opts.answer);
   renderWithProviders(
     <EntryActionsProvider
       value={{
@@ -158,5 +159,27 @@ describe("SpotlightRowBlock", () => {
     setUp({ live: true, pastShow: false });
     await userEvent.setup().click(screen.getByRole("button", { name: whosOnCopy.editName }));
     expect(document.body.textContent).not.toMatch(/spotlight/i);
+  });
+
+  it.each([
+    ["live row", false],
+    ["ended-show row", true],
+  ])("on a refused rename of a %s, words the refusal by the row until the next edit", async (_l, pastShow) => {
+    setUp({ live: !pastShow, pastShow, answer: whosOnCopy.disabled });
+    const { user } = await rename("Porch Static Duo");
+    await user.click(screen.getByRole("button", { name: whosOnCopy.saveName }));
+    expect(await screen.findByText(whosOnCopy.disabled)).toBeInTheDocument();
+    expect(screen.getByText("Porch Static")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/spotlight/i);
+    await user.click(screen.getByRole("button", { name: whosOnCopy.editName }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByText(whosOnCopy.disabled)).toBeNull();
+  });
+
+  it("shows no line when the write is accepted", async () => {
+    setUp({ live: true, pastShow: false });
+    const { user } = await rename("Porch Static Duo");
+    await user.click(screen.getByRole("button", { name: whosOnCopy.saveName }));
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

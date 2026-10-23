@@ -553,6 +553,17 @@ export const flowsheetApi = createApi({
         method: "PATCH",
         body: params,
       }),
+      // Scoped to a rename: the row editor words the refusal itself, while a
+      // song-field edit has no one reading `sentence`, so it keeps the global
+      // toast.
+      transformErrorResponse: (error, meta, arg) => {
+        if (arg.data.spotlight_name === undefined) {
+          return error;
+        }
+        return markRefusal({
+          codes: { spotlight_disabled: whosOnCopy.disabled },
+        })(error, meta, arg);
+      },
       invalidatesTags: ["NowPlaying"],
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         const patchResult = dispatch(
