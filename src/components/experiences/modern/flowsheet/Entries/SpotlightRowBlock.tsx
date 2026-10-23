@@ -30,12 +30,18 @@ export default function SpotlightRowBlock({
   const canEdit = pastShow || (live && entry.show_id == currentShow);
   const caption = whosOnRoleText(entry.spotlight_role);
 
-  const save = (e: FormEvent<HTMLFormElement>) => {
+  const [refusal, setRefusal] = useState<string | null>(null);
+
+  const save = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const name = value.trim();
     setEditing(false);
     if (name.length > 0 && name !== entry.spotlight_name) {
-      updateFlowsheet({ entry_id: entry.id, data: { spotlight_name: name } });
+      const sentence = await updateFlowsheet({
+        entry_id: entry.id,
+        data: { spotlight_name: name },
+      });
+      setRefusal(sentence ?? null);
     }
   };
 
@@ -79,7 +85,7 @@ export default function SpotlightRowBlock({
   }
 
   return (
-    <Stack direction="row" spacing={0.5} alignItems="center">
+    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap">
       <Typography level="body-lg" color={ENTRY_TONES.whosOn.color}>
         {entry.spotlight_name}
       </Typography>
@@ -97,12 +103,18 @@ export default function SpotlightRowBlock({
             aria-label={whosOnCopy.editName}
             onClick={() => {
               setValue(entry.spotlight_name);
+              setRefusal(null);
               setEditing(true);
             }}
           >
             <EditOutlined />
           </IconButton>
         </Tooltip>
+      )}
+      {refusal && (
+        <Typography level="body-xs" color="danger" role="alert" sx={{ width: "100%" }}>
+          {refusal}
+        </Typography>
       )}
     </Stack>
   );

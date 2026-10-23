@@ -210,7 +210,19 @@ export function usePastShowEntryActions(showId: number): EntryActions {
     };
     return {
       pastShow: true,
-      updateFlowsheet: (params) => settle(update({ showId, ...params }).unwrap()),
+      // A rename's refusal is worded by the row, not toasted here.
+      updateFlowsheet: async (params) => {
+        try {
+          await update({ showId, ...params }).unwrap();
+        } catch (error) {
+          const sentence = (error as { sentence?: string })?.sentence;
+          if (sentence && params.data.spotlight_name === undefined) {
+            toast.error(sentence);
+          }
+          return sentence;
+        }
+        return undefined;
+      },
       removeFromFlowsheet: (entry_id) => settle(remove({ showId, entry_id }).unwrap()),
       reorder: ({ id }, new_position) =>
         settle(reorder({ showId, entry_id: id, new_position }).unwrap()),

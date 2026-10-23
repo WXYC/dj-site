@@ -5,6 +5,7 @@ import type {
   FlowsheetSwitchParams,
   FlowsheetUpdateParams,
 } from "@/lib/features/flowsheet/types";
+import { whosOnCopy } from "@/lib/features/flowsheet/whos-on-copy";
 import { EMPTY_SHOW_PLAYLIST, type ShowPlaylistWire } from "./types";
 
 export const CLOSED_SHOW_SENTENCE =
@@ -57,7 +58,12 @@ export const markRefusal =
     return sentence ? { ...error, expected: true, sentence } : error;
   };
 
-const markPastShowRefusal = markRefusal({ badRequest: NOT_ON_SHOW_SENTENCE });
+// Only a write that sets who's-on fields is ever refused with
+// `spotlight_disabled`, so wording it here cannot silence a song-field edit.
+const markPastShowRefusal = markRefusal({
+  badRequest: NOT_ON_SHOW_SENTENCE,
+  codes: { spotlight_disabled: whosOnCopy.disabled },
+});
 
 export const showPlaylistApi = createApi({
   reducerPath: "showPlaylistApi",

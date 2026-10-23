@@ -641,11 +641,12 @@ export const useFlowsheetActions = () => {
   const [updateFlowsheetMutation] =
     useUpdateFlowsheetMutation(NO_MUTATION_STATE);
   const updateFlowsheet = useCallback(
-    (updateData: FlowsheetUpdateParams) => {
+    async (updateData: FlowsheetUpdateParams): Promise<string | undefined> => {
       if (!userData || userData.id === undefined || userloading) {
-        return;
+        return undefined;
       }
-      updateFlowsheetMutation(updateData);
+      const result = await updateFlowsheetMutation(updateData);
+      return (result?.error as { sentence?: string } | undefined)?.sentence;
     },
     [updateFlowsheetMutation, userData, userloading]
   );
