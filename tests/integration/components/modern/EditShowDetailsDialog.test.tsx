@@ -177,10 +177,16 @@ describe("EditShowDetailsDialog", () => {
       CLOSED_SHOW_SENTENCE,
     ],
     [
-      "400 on a program change",
-      () => HttpResponse.json({ message: "bad" }, { status: 400 }),
+      "specialty_not_taggable 400 on a program change",
+      () => HttpResponse.json({ code: "specialty_not_taggable", message: "bad" }, { status: 400 }),
       { specialty_id: HYPERLOCAL.id },
       REJECTED_PROGRAM_SENTENCE,
+    ],
+    [
+      "code-less 400 on a program change",
+      () => HttpResponse.json({ message: "bad" }, { status: 400 }),
+      { specialty_id: HYPERLOCAL.id },
+      SHOW_DETAILS_REFUSED_SENTENCE,
     ],
     [
       "400 on a title-only change",
