@@ -2,7 +2,7 @@
 
 import { Alert, Box, Button, FormControl, FormLabel, Input, Stack, Typography } from "@mui/joy";
 import type { SpecialtyShow } from "@wxyc/shared";
-import { describeSlot, specialtyCopy } from "@/lib/features/specialty/copy";
+import { describeSlot, SHOW_TITLE_MAX_LENGTH, specialtyCopy } from "@/lib/features/specialty/copy";
 import { useSpecialtyQuestion } from "@/src/hooks/specialtyQuestionHooks";
 import { useSpecialtyTagging } from "@/src/hooks/specialtyTaggingHooks";
 import SpecialtyTile from "../SpecialtyTile";
@@ -42,7 +42,7 @@ export default function SpecialtyQuestion() {
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            slotProps={{ input: { maxLength: 128 } }}
+            slotProps={{ input: { maxLength: SHOW_TITLE_MAX_LENGTH } }}
           />
         </FormControl>
         {refusal && <Alert color="danger">{refusal}</Alert>}
