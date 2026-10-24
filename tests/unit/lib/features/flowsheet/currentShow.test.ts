@@ -103,12 +103,19 @@ describe("getCurrentShow", () => {
   });
 });
 
+const NOT_TAGGABLE = { code: "specialty_not_taggable", message: "Unknown program" };
+
 describe("updateShow refusals", () => {
   it.each([
-    ["a 400 for a program tag", { specialty_id: 4 }, 400, { message: "Unknown program" }, REJECTED_PROGRAM_SENTENCE, true],
-    ["a 400 for a cleared program tag", { specialty_id: null }, 400, { message: "x" }, REJECTED_PROGRAM_SENTENCE, true],
+    ["a specialty_not_taggable 400 for a program tag", { specialty_id: 4 }, 400, NOT_TAGGABLE, REJECTED_PROGRAM_SENTENCE, true],
+    ["a specialty_not_taggable 400 for a program and title", { specialty_id: 4, show_name: "x" }, 400, NOT_TAGGABLE, REJECTED_PROGRAM_SENTENCE, true],
+    ["a code-less 400 for a program tag", { specialty_id: 4 }, 400, { message: "Unknown program" }, SHOW_DETAILS_REFUSED_SENTENCE, true],
+    ["another coded 400 for a program tag", { specialty_id: 4 }, 400, { code: "show_name_too_long", message: "x" }, SHOW_DETAILS_REFUSED_SENTENCE, true],
+    ["a code-less 400 for a cleared program tag", { specialty_id: null }, 400, { message: "x" }, SHOW_DETAILS_REFUSED_SENTENCE, true],
+    ["a specialty_not_taggable 400 worded by its code, not the body sent", { show_name: "x" }, 400, NOT_TAGGABLE, REJECTED_PROGRAM_SENTENCE, true],
     ["a 400 for a title only", { show_name: "x" }, 400, { message: "Bad show_name" }, SHOW_DETAILS_REFUSED_SENTENCE, true],
     ["a closed_show 403", { show_name: "x" }, 403, { code: "closed_show", message: "Show closed" }, CLOSED_SHOW_SENTENCE, true],
+    ["a specialty_not_taggable 403", { specialty_id: 4 }, 403, NOT_TAGGABLE, null, false],
     ["a 400 for a request mode", { request_mode: "closed" as const }, 400, { message: "Bad request_mode" }, SHOW_DETAILS_REFUSED_SENTENCE, true],
     ["a closed_show 403 for a request mode", { request_mode: null }, 403, { code: "closed_show" }, CLOSED_SHOW_SENTENCE, true],
     ["a 403 without a code", { show_name: "x" }, 403, { error: "forbidden" }, null, false],
@@ -156,13 +163,16 @@ describe("addToFlowsheet refusals", () => {
 
 describe("joinShow refusals", () => {
   it.each([
-    ["a tagged 400", { specialty_id: 4 }, ONE_TAP_TAG_REFUSED_SENTENCE],
-    ["an untagged 400", {}, null],
-    ["a title-only 400", { show_name: "x" }, null],
-  ])("%s", async (_name, tag, sentence) => {
+    ["a specialty_not_taggable 400 on a tagged press", { specialty_id: 4 }, NOT_TAGGABLE, ONE_TAP_TAG_REFUSED_SENTENCE],
+    ["a specialty_not_taggable 400 on a title-only press", { show_name: "x" }, NOT_TAGGABLE, ONE_TAP_TAG_REFUSED_SENTENCE],
+    ["a code-less 400 on a tagged press", { specialty_id: 4 }, { message: "no" }, null],
+    ["another coded 400 on a tagged press", { specialty_id: 4 }, { code: "show_name_too_long", message: "no" }, null],
+    ["a code-less 400 on an untagged press", {}, { message: "no" }, null],
+    ["a code-less 400 on a title-only press", { show_name: "x" }, { message: "no" }, null],
+  ])("%s", async (_name, tag, body, sentence) => {
     server.use(
       http.post(`${TEST_BACKEND_URL}/flowsheet/join`, () =>
-        HttpResponse.json({ message: "no" }, { status: 400 })
+        HttpResponse.json(body, { status: 400 })
       )
     );
     const result = await createTestStore().dispatch(
@@ -199,5 +209,23 @@ describe("refusalSentence", () => {
     expect(
       refusalSentence({ status: 400, data: { code: "x" } }, undefined, { x: "ex" })
     ).toBeNull();
+  });
+
+  it.each([
+    ["a 400 with a mapped code", 400, { code: "x" }, "by code"],
+    ["a 400 with another code", 400, { code: "y" }, "badRequest sentence"],
+    ["a 400 without a code", 400, { message: "x" }, "badRequest sentence"],
+    ["a 400 whose code is an Object.prototype key", 400, { code: "constructor" }, "badRequest sentence"],
+    ["a 400 with no body", 400, null, "badRequest sentence"],
+    ["a 403 with the mapped code", 403, { code: "x" }, null],
+    ["a 500 with the mapped code", 500, { code: "x" }, null],
+  ])("words %s from badRequestCodes ahead of badRequest", (_name, status, data, expected) => {
+    expect(
+      refusalSentence({ status, data }, "badRequest sentence", {}, { x: "by code" })
+    ).toBe(expected);
+  });
+
+  it("leaves a 400 to general handling when neither badRequest nor its code is worded", () => {
+    expect(refusalSentence({ status: 400, data: { code: "y" } }, undefined, {}, { x: "by code" })).toBeNull();
   });
 });

@@ -158,10 +158,8 @@ export const flowsheetApi = createApi({
       // A refusal the caller words itself is marked expected so the global
       // toast stays quiet instead of repeating it in the server's words.
       transformErrorResponse: markRefusal({
-        badRequest: ({ specialty_id }) =>
-          specialty_id === undefined
-            ? SHOW_DETAILS_REFUSED_SENTENCE
-            : REJECTED_PROGRAM_SENTENCE,
+        badRequest: SHOW_DETAILS_REFUSED_SENTENCE,
+        badRequestCodes: { specialty_not_taggable: REJECTED_PROGRAM_SENTENCE },
       }),
       // The open-shows list carries each row's title, and the Previous Sets
       // header carries the program, so a save must refresh both for every caller.
@@ -239,8 +237,7 @@ export const flowsheetApi = createApi({
       // A refused program tag is worded by the go-live surfaces; marking it
       // expected keeps the global toast from repeating the server's text.
       transformErrorResponse: markRefusal({
-        badRequest: (arg) =>
-          arg.specialty_id === undefined ? undefined : ONE_TAP_TAG_REFUSED_SENTENCE,
+        badRequestCodes: { specialty_not_taggable: ONE_TAP_TAG_REFUSED_SENTENCE },
       }),
       invalidatesTags: ["NowPlaying", "WhoIsLive"],
       async onQueryStarted(arg, { dispatch, queryFulfilled, getState }) {

@@ -367,7 +367,7 @@ describe("SpecialtyQuestion", () => {
   });
 
   it.each([
-    ["a 400, by status alone", 400, { message: "anything at all" }, REJECTED_PROGRAM_SENTENCE],
+    ["a specialty_not_taggable 400, by its code", 400, { code: "specialty_not_taggable", message: "anything at all" }, REJECTED_PROGRAM_SENTENCE],
     ["a closed_show 403", 403, { code: "closed_show", message: "ended" }, CLOSED_SHOW_SENTENCE],
   ])("words %s as one sentence without a toast", async (_label, status, body, sentence) => {
     patchRefusal = { status, body };

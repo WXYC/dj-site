@@ -429,16 +429,22 @@ describe("joinShow handoff decision on the wire", () => {
   // The refused tag is worded by the go-live surfaces, so the global handler
   // repeating the server's text would put both on screen.
   it.each([
-    ["a tagged 400 stays silent", { specialty_id: 10 }, 0],
-    ["an untagged 400 still toasts", {}, 1],
-  ])("%s", async (_name, tag, toasts) => {
+    ["a specialty_not_taggable 400 on a tagged press stays silent", { specialty_id: 10 }, "specialty_not_taggable", 0],
+    ["a specialty_not_taggable 400 on an untagged press stays silent", {}, "specialty_not_taggable", 0],
+    ["a code-less 400 on a tagged press still toasts", { specialty_id: 10 }, undefined, 1],
+    ["another coded 400 on a tagged press still toasts", { specialty_id: 10 }, "show_name_too_long", 1],
+    ["an untagged 400 still toasts", {}, undefined, 1],
+  ])("%s", async (_name, tag, code, toasts) => {
     toastError.mockClear();
     captureException.mockClear();
     const store = await seedStore();
     server.use(
       http.post(`${TEST_BACKEND_URL}/flowsheet/join`, () =>
         HttpResponse.json(
-          { message: "Bad Request: specialty_id is unknown or names a retired specialty show" },
+          {
+            message: "Bad Request: specialty_id is unknown or names a retired specialty show",
+            ...(code && { code }),
+          },
           { status: 400 }
         )
       )

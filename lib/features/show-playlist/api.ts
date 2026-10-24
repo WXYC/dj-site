@@ -18,27 +18,34 @@ export type RefusalOptions<Arg = unknown> = {
   badRequest?: string | ((arg: Arg) => string | undefined);
   /** More 403 `code`s the caller words itself; `closed_show` is always worded. */
   codes?: Record<string, string>;
+  /** 400 `code`s the caller words itself; a mapped code wins over `badRequest`. */
+  badRequestCodes?: Record<string, string>;
 };
 
 /**
  * The one sentence a refused write is shown as, or null when the refusal
  * belongs to the site's general handling. A 403 is told apart by the `code` in
  * its raw body, since a missing permission or a ban is also a 403; a 400 is
- * told apart by its status alone, never its message text, and is worded by the
- * caller.
+ * worded by the caller, by `badRequestCodes` on its `code` first and else by
+ * `badRequest`. Never by message text.
  */
 export function refusalSentence(
   error: { status?: unknown; data?: unknown },
   badRequest?: string,
-  codes: Record<string, string> = {}
+  codes: Record<string, string> = {},
+  badRequestCodes: Record<string, string> = {}
 ): string | null {
-  if (error.status === 400) {
-    return badRequest ?? null;
-  }
-  if (error.status !== 403) {
+  if (error.status !== 400 && error.status !== 403) {
     return null;
   }
   const code = (error.data as { code?: unknown } | null | undefined)?.code;
+  if (error.status === 400) {
+    const coded =
+      typeof code === "string" && Object.hasOwn(badRequestCodes, code)
+        ? badRequestCodes[code]
+        : undefined;
+    return coded ?? badRequest ?? null;
+  }
   if (typeof code !== "string") {
     return null;
   }
@@ -48,12 +55,13 @@ export function refusalSentence(
 // A refusal the caller words itself is marked expected, so the global error
 // toast stays quiet instead of repeating it in the server's words.
 export const markRefusal =
-  <Arg>({ badRequest, codes }: RefusalOptions<Arg> = {}) =>
+  <Arg>({ badRequest, codes, badRequestCodes }: RefusalOptions<Arg> = {}) =>
   (error: FetchBaseQueryError, _meta: unknown, arg: Arg) => {
     const sentence = refusalSentence(
       error,
       typeof badRequest === "function" ? badRequest(arg) : badRequest,
-      codes
+      codes,
+      badRequestCodes
     );
     return sentence ? { ...error, expected: true, sentence } : error;
   };
