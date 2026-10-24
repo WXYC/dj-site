@@ -52,11 +52,31 @@ export function refusalSentence(
   return { closed_show: CLOSED_SHOW_SENTENCE, ...codes }[code] ?? null;
 }
 
+/** A refusal the caller worded itself; `expected` keeps the global error toast quiet. */
+export type MarkedRefusal = FetchBaseQueryError & {
+  expected: true;
+  sentence: string;
+};
+
+/**
+ * The sentence a marked refusal carries, read from an unwrapped rejection or a
+ * mutation's `result.error`; null for anything unmarked.
+ */
+export function refusalSentenceOf(error: unknown): string | null {
+  const sentence = (error as { sentence?: unknown } | null | undefined)
+    ?.sentence;
+  return typeof sentence === "string" ? sentence : null;
+}
+
 // A refusal the caller words itself is marked expected, so the global error
 // toast stays quiet instead of repeating it in the server's words.
 export const markRefusal =
   <Arg>({ badRequest, codes, badRequestCodes }: RefusalOptions<Arg> = {}) =>
-  (error: FetchBaseQueryError, _meta: unknown, arg: Arg) => {
+  (
+    error: FetchBaseQueryError,
+    _meta: unknown,
+    arg: Arg
+  ): FetchBaseQueryError | MarkedRefusal => {
     const sentence = refusalSentence(
       error,
       typeof badRequest === "function" ? badRequest(arg) : badRequest,

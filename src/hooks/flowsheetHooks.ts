@@ -55,6 +55,7 @@ import {
   useCatalogFlowsheetSearch,
   useRotationFlowsheetSearch,
 } from "./catalogHooks";
+import { refusalSentenceOf } from "@/lib/features/show-playlist/api";
 import { useLmlLibrarySearch } from "./useLmlLibrarySearch";
 import { MAX_VISIBLE_RESULTS } from "@/src/components/experiences/modern/flowsheet/Search/Results/BackendResults/FlowsheetBackendResults";
 
@@ -329,8 +330,8 @@ export const useShowControl = () => {
     } catch (err) {
       const conflict = readShowAlreadyOpen(err);
       if (conflict) return { status: "conflict", handoff: conflict };
-      const { status, sentence } = err as { status?: unknown; sentence?: string };
-      if (status === 400 && sentence) {
+      const sentence = refusalSentenceOf(err);
+      if ((err as { status?: unknown }).status === 400 && sentence) {
         return { status: "tag-refused", message: sentence };
       }
       return {
@@ -646,7 +647,7 @@ export const useFlowsheetActions = () => {
         return undefined;
       }
       const result = await updateFlowsheetMutation(updateData);
-      return (result?.error as { sentence?: string } | undefined)?.sentence;
+      return refusalSentenceOf(result?.error) ?? undefined;
     },
     [updateFlowsheetMutation, userData, userloading]
   );

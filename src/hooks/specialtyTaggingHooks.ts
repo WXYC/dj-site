@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { SpecialtyShow } from "@wxyc/shared";
 import { useUpdateShowMutation } from "@/lib/features/flowsheet/api";
+import { refusalSentenceOf } from "@/lib/features/show-playlist/api";
 
 type Confirmation = { showId: number; program: SpecialtyShow; afterEntryId: number | null };
 
@@ -34,7 +35,7 @@ export function useSpecialtyTagging(showId: number | null, newestEntryId: number
       return true;
     } catch (error) {
       // Null is a refusal for the site's general handling, which has toasted it.
-      setRefusal((error as { sentence?: string }).sentence ?? null);
+      setRefusal(refusalSentenceOf(error));
       return false;
     }
   };

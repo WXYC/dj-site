@@ -4,6 +4,7 @@ import {
   useGetCurrentShowQuery,
 } from "@/lib/features/flowsheet/api";
 import type { SpotlightRole } from "@wxyc/shared";
+import { refusalSentenceOf } from "@/lib/features/show-playlist/api";
 
 /**
  * What the who's-on control needs from the open show: whether to offer it, the
@@ -47,7 +48,7 @@ export function useWhosOn() {
         setRefusal(null);
         return true;
       } catch (error) {
-        setRefusal((error as { sentence?: string }).sentence ?? null);
+        setRefusal(refusalSentenceOf(error));
         return false;
       }
     },
