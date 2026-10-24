@@ -15,13 +15,12 @@ import {
 import type { SpecialtyShowRef } from "@wxyc/shared";
 import { useUpdateShowMutation } from "@/lib/features/flowsheet/api";
 import { useGetSpecialtyShowsQuery } from "@/lib/features/specialty/api";
-import { specialtyCopy } from "@/lib/features/specialty/copy";
+import { SHOW_TITLE_MAX_LENGTH, specialtyCopy } from "@/lib/features/specialty/copy";
 import { programsForStart } from "@/lib/features/specialty/slot-match";
 import RequestLineControl from "@/src/components/experiences/modern/RequestLineControl";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
 
 const NONE = "none";
-const TITLE_MAX_LENGTH = 128;
 
 /**
  * Changes an open or ended show's program and title. The caller decides whether
@@ -122,7 +121,7 @@ export default function EditShowDetailsDialog({
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            slotProps={{ input: { maxLength: TITLE_MAX_LENGTH } }}
+            slotProps={{ input: { maxLength: SHOW_TITLE_MAX_LENGTH } }}
           />
         </FormControl>
         <RequestLineControl showId={showId} />

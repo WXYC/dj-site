@@ -1,7 +1,7 @@
 "use client";
 
 import "@/src/styles/classic/wxyc.css";
-import { describeSlot, specialtyCopy } from "@/lib/features/specialty/copy";
+import { describeSlot, SHOW_TITLE_MAX_LENGTH, specialtyCopy } from "@/lib/features/specialty/copy";
 import { useSpecialtyQuestion } from "@/src/hooks/specialtyQuestionHooks";
 import { useSpecialtyTagging } from "@/src/hooks/specialtyTaggingHooks";
 
@@ -34,7 +34,7 @@ export default function SpecialtyQuestion() {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              maxLength={128}
+              maxLength={SHOW_TITLE_MAX_LENGTH}
             />
           </label>
         )}{" "}

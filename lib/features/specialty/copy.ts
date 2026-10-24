@@ -37,6 +37,9 @@ export const SHOW_DETAILS_REFUSED_SENTENCE =
 export const ONE_TAP_TAG_REFUSED_SENTENCE =
   "The DJ site couldn't open the show as that program. It may have been retired. Going live the usual way still works.";
 
+/** The longest show title the server stores; mirrors Backend-Service's SHOW_NAME_MAX_LENGTH. */
+export const SHOW_TITLE_MAX_LENGTH = 128;
+
 /** Every string the set-tagging question shows; refusals have their own sentences above. */
 export const specialtyCopy = {
   goLiveAs: (program: Pick<SpecialtyShow, "name" | "short_name">) =>

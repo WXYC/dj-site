@@ -8,7 +8,7 @@ import {
   GO_LIVE_HANDOFF_TESTIDS,
   describeOpenShow,
 } from "@/lib/features/flowsheet/go-live-handoff";
-import { specialtyCopy, withStartAs } from "@/lib/features/specialty/copy";
+import { SHOW_TITLE_MAX_LENGTH, specialtyCopy, withStartAs } from "@/lib/features/specialty/copy";
 import { useOneTapPrograms, useWarmCurrentShow } from "@/src/hooks/specialtyHooks";
 import type { OneTap } from "@/src/hooks/goLiveHandoffHooks";
 import { useLogout, useRegistry } from "@/src/hooks/authenticationHooks";
@@ -61,7 +61,7 @@ export default function StartShow() {
     // a dialog would silently drop the handle the DJ typed.
     // The airing's title rides in the tag, so it is replayed with the program
     // on a takeover retry; an empty box sends none.
-    const title = showName.trim().slice(0, 128);
+    const title = showName.trim().slice(0, SHOW_TITLE_MAX_LENGTH);
     const tag = title ? { ...oneTap?.tag, show_name: title } : oneTap?.tag;
     void requestGoLive(override, tag && { ...oneTap, tag });
   };
@@ -188,7 +188,7 @@ export default function StartShow() {
                     name="showName"
                     value={showName}
                     onChange={(e) => setShowName(e.target.value)}
-                    maxLength={128}
+                    maxLength={SHOW_TITLE_MAX_LENGTH}
                     placeholder="(optional)"
                   />
                   &nbsp;(optional)
