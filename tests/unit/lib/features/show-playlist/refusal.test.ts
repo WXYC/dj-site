@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  CLOSED_SHOW_SENTENCE,
   markRefusal,
   refusalSentenceOf,
 } from "@/lib/features/show-playlist/api";
@@ -10,10 +11,21 @@ const marked = markRefusal({ badRequest: "Pick a program." })(
   undefined
 );
 
+// What a mutation resolves to when transformErrorResponse marked a 403: the
+// reader is handed `result.error`, a different status and sentence from the
+// 400 rejection above.
+const result = {
+  error: markRefusal()(
+    { status: 403, data: { code: "closed_show" } },
+    undefined,
+    undefined
+  ),
+};
+
 describe("refusalSentenceOf", () => {
   it.each([
     ["a marked rejection", marked, "Pick a program."],
-    ["a result.error", { error: marked }.error, "Pick a program."],
+    ["a result.error", result.error, CLOSED_SHOW_SENTENCE],
     ["an unmarked error", { status: 500, data: null }, null],
     ["a non-string sentence", { sentence: 3 }, null],
     ["null", null, null],

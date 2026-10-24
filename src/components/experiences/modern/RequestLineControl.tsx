@@ -10,6 +10,7 @@ import {
   requestLineCopy,
   sourceExplanation,
 } from "@/lib/features/flowsheet/request-line-copy";
+import { refusalSentenceOf } from "@/lib/features/show-playlist/api";
 
 /**
  * Sets the open show's request line and says why it is in effect. It shows the
@@ -42,7 +43,7 @@ export default function RequestLineControl({ showId }: { showId: number }) {
       setConfirming(choice === "feedback");
     } catch (error) {
       // Null is a refusal for the site's general handling, which has toasted it.
-      setRefusal((error as { sentence?: string }).sentence ?? null);
+      setRefusal(refusalSentenceOf(error));
     }
   };
 
