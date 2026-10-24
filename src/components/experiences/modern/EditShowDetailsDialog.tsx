@@ -19,6 +19,7 @@ import { SHOW_TITLE_MAX_LENGTH, specialtyCopy } from "@/lib/features/specialty/c
 import { programsForStart } from "@/lib/features/specialty/slot-match";
 import RequestLineControl from "@/src/components/experiences/modern/RequestLineControl";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
+import { refusalSentenceOf } from "@/lib/features/show-playlist/api";
 
 const NONE = "none";
 
@@ -80,7 +81,7 @@ export default function EditShowDetailsDialog({
       onClose();
     } catch (error) {
       // Null is a refusal for the site's general handling, which has toasted it.
-      setRefusal((error as { sentence?: string }).sentence ?? null);
+      setRefusal(refusalSentenceOf(error));
     }
   };
 

@@ -8,6 +8,7 @@ import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import type { SpecialtyShowRef } from "@wxyc/shared";
 import { skipToken } from "@reduxjs/toolkit/query";
 import {
+  refusalSentenceOf,
   useGetShowPlaylistQuery,
   useRemoveShowEntryMutation,
   useReorderShowEntryMutation,
@@ -209,9 +210,10 @@ export function usePastShowEntryActions(showId: number): EntryActions {
 
   return useMemo(() => {
     const settle = (write: Promise<unknown>) => {
-      write.catch((error: { sentence?: string }) => {
-        if (error?.sentence) {
-          toast.error(error.sentence);
+      write.catch((error: unknown) => {
+        const sentence = refusalSentenceOf(error);
+        if (sentence) {
+          toast.error(sentence);
         }
       });
     };
@@ -222,7 +224,7 @@ export function usePastShowEntryActions(showId: number): EntryActions {
         try {
           await update({ showId, ...params }).unwrap();
         } catch (error) {
-          const sentence = (error as { sentence?: string })?.sentence;
+          const sentence = refusalSentenceOf(error) ?? undefined;
           if (sentence && params.data.spotlight_name === undefined) {
             toast.error(sentence);
           }
