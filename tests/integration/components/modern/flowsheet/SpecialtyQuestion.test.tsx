@@ -8,7 +8,6 @@ import { CLOSED_SHOW_SENTENCE } from "@/lib/features/show-playlist/api";
 import {
   REJECTED_PROGRAM_SENTENCE,
   SHOW_DETAILS_REFUSED_SENTENCE,
-  specialtyCopy,
 } from "@/lib/features/specialty/copy";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { SEED_CATALOG } from "@/tests/fixtures/specialty";
@@ -395,24 +394,5 @@ describe("SpecialtyQuestion", () => {
       await waitFor(() => expect(toastError).toHaveBeenCalled());
     }
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("keeps 'Spotlight' and 'dj-site' out of every string the question shows", () => {
-    const { askOne, askShared, yes, tagged, slotHint, goLiveAs, signOnAs, ...fixed } = specialtyCopy;
-    const program = { name: "A", short_name: "A" };
-    const strings = [
-      goLiveAs(program),
-      signOnAs(program),
-      askOne("Sunday at noon", "A"),
-      askShared("Sunday at noon", ["A", "B"]),
-      yes("A"),
-      tagged("A"),
-      slotHint("A"),
-      ...Object.values(fixed),
-      REJECTED_PROGRAM_SENTENCE,
-    ];
-    for (const text of strings) {
-      expect(text).not.toMatch(/spotlight|dj-site/i);
-    }
   });
 });

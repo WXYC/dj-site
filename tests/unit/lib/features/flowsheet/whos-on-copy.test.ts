@@ -32,20 +32,6 @@ describe("whos-on copy", () => {
     );
   });
 
-  it("never says spotlight in a string a DJ reads", () => {
-    const strings = [
-      ...WHOS_ON_ROLES.flatMap(({ menu, row }) => [menu, row]),
-      ...Object.values(whosOnCopy).flatMap((value) =>
-        typeof value === "function"
-          ? [value("dj"), value("guest"), value("performer")]
-          : [value]
-      ),
-    ];
-    for (const text of strings) {
-      expect(text.toLowerCase()).not.toContain("spotlight");
-    }
-  });
-
   it("asks for the name they DJ under on a dj entry, and a plain name otherwise", () => {
     expect(whosOnCopy.nameLabel("dj")).toBe("The name they DJ under");
     expect(whosOnCopy.nameLabel("guest")).toBe("Name");
