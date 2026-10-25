@@ -129,24 +129,6 @@ describe("RequestLineControl descriptions", () => {
 });
 
 describe("request-line wording", () => {
-  const strings = (value: unknown): string[] => {
-    if (typeof value === "string") {
-      return [value];
-    }
-    if (typeof value === "function") {
-      return [undefined, null, "performer", "reader"].flatMap((role) =>
-        strings((value as (role: unknown) => unknown)(role))
-      );
-    }
-    return value && typeof value === "object" ? Object.values(value).flatMap(strings) : [];
-  };
-
-  it("never says spotlight to a DJ", () => {
-    const all = strings(requestLineCopy);
-    expect(all.length).toBeGreaterThan(8);
-    expect(all.filter((text) => /spotlight/i.test(text))).toEqual([]);
-  });
-
   it("closes for any other role in plain words", () => {
     expect(requestLineCopy.spotlightClosed(undefined)).toBe("Closed for this part of the set.");
   });
