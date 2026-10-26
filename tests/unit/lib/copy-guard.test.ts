@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { WHOS_ON_ROLES } from "@/lib/features/flowsheet/whos-on-copy";
 import * as showPlaylistApi from "@/lib/features/show-playlist/api";
 
 const BANNED = /spotlight|dj-site/i;
@@ -11,10 +12,7 @@ const PROGRAM = { name: "Porch Static", short_name: "Porch" };
 const ARGUMENT_LISTS: unknown[][] = [
   [undefined],
   [null],
-  ["dj"],
-  ["guest"],
-  ["performer"],
-  ["reader"],
+  ...WHOS_ON_ROLES.map(({ role }) => [role]),
   [PROGRAM],
   ["Sunday at noon", "Porch Static"],
   ["Sunday at noon", ["Porch Static", "Stereolab"]],
@@ -73,6 +71,10 @@ describe("DJ-facing copy", () => {
   });
 
   it.each(exported)("%s never says spotlight or dj-site", (name, value) => {
-    expect(strings(value, name).filter((text) => BANNED.test(text))).toEqual([]);
+    const found = strings(value, name);
+    if (typeof value !== "number") {
+      expect(found, `${name} holds no strings; is it copy?`).not.toEqual([]);
+    }
+    expect(found.filter((text) => BANNED.test(text))).toEqual([]);
   });
 });
