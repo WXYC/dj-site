@@ -26,6 +26,7 @@ const ARGUMENT_LISTS: unknown[][] = [
   [0],
   ["Juana Molina", "DOGA"],
   ["Juana Molina", "DOGA", "la paradoja"],
+  ["Porch Static", "Juana Molina", "DOGA", "Static Porch"],
   [2, "Juana Molina"],
   [true, false],
 ];
