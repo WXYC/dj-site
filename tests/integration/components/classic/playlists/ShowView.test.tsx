@@ -157,7 +157,7 @@ describe("classic archived-show view — flowsheetRadioShowDisplayPublic.jsp", (
     serveShow();
     renderWithProviders(<ShowView showId={SHOW_ID} />);
 
-    const row = (await screen.findByText("talkset")).closest("tr")!;
+    const row = (await screen.findByText("Talkset")).closest("tr")!;
     const time = row.querySelector(".classic-schedule-week-time")!;
     expect(time.textContent).toBe("6:00 PM");
     expect(time.nextElementSibling!.getAttribute("colspan")).toBe("7");

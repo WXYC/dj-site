@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useState,
   type DragEvent as ReactDragEvent,
   type ReactNode,
@@ -44,8 +45,11 @@ type Props = {
   /** A past-show table's two extra leading columns, the Time cell and the
    *  indicator gutter; the live flowsheet passes none. Marker rows then span
    *  the gutter too, and a message row, which the live flowsheet leaves unlisted,
-   *  is listed so a past show never hides a row it logged. */
-  leading?: { time: string; indicators: ReactNode };
+   *  is listed so a past show never hides a row it logged. `marker` is a
+   *  marker row's text in the archive's shared wording; the live flowsheet's
+   *  own marker text names a breakpoint by the minute it was logged and
+   *  repeats the date and time the Time cell gives. */
+  leading?: { time: string; indicators: ReactNode; marker?: string };
   isDragging?: boolean;
   isDragOver?: boolean;
   onDragStart?: (entryId: number) => void;
@@ -91,8 +95,22 @@ export default function EntryRow({
   onDrop,
   onDragEnd,
 }: Props) {
-  const [draft, setDraft] = useState<EditDraft | null>(null);
+  const [openDraft, setDraft] = useState<EditDraft | null>(null);
+  // Edit permission can end while a row is open — a DJ's ends with the show —
+  // and the draft then has nowhere to go.
+  const draft = onUpdate ? openDraft : null;
   const isEditing = draft !== null;
+
+  // The toast is why this is an effect: it reports a change of permission that
+  // arrives from outside the row, rather than letting the draft vanish.
+  useEffect(() => {
+    if (openDraft !== null && !onUpdate) {
+      toast.error(
+        "You can no longer edit this show, so your unsaved change was discarded."
+      );
+      setDraft(null);
+    }
+  }, [openDraft, onUpdate]);
 
   const beginEdit = () => {
     if (!isFlowsheetSongEntry(entry)) return;
@@ -108,7 +126,9 @@ export default function EntryRow({
   const cancelEdit = () => setDraft(null);
 
   const saveEdit = () => {
-    if (!draft) return;
+    if (!draft || !onUpdate) {
+      return;
+    }
     const trimmed = {
       artist_name: draft.artist_name.trim(),
       track_title: draft.track_title.trim(),
@@ -126,7 +146,7 @@ export default function EntryRow({
       toast.error(rejection);
       return;
     }
-    onUpdate?.(entry.id, {
+    onUpdate(entry.id, {
       ...trimmed,
       request_flag: draft.request_flag,
     });
@@ -199,7 +219,7 @@ export default function EntryRow({
         {isDraggable ? <GripCell /> : <EmptyGripCell />}
         {timeCell}
         <td colSpan={markerSpan} align="center">
-          talkset
+          {leading?.marker ?? "talkset"}
         </td>
         <td className="action-cell">
           {onDelete && <EntryActionMenu entryId={entry.id} onDelete={onDelete} />}
@@ -216,7 +236,9 @@ export default function EntryRow({
       >
         <EmptyGripCell />
         {timeCell}
-        <td colSpan={markerSpan}>{formatShortTime(entry.time)}</td>
+        <td colSpan={markerSpan}>
+          {leading?.marker ?? formatShortTime(entry.time)}
+        </td>
         <td className="action-cell"></td>
       </tr>
     );
@@ -231,8 +253,12 @@ export default function EntryRow({
         <EmptyGripCell />
         {timeCell}
         <td colSpan={markerSpan}>
-          Start of show — {entry.dj_name}{program && ` (${program})`} @ {formatShortDate(entry.day)}{" "}
-          {formatShortTime(entry.time)}
+          {leading?.marker ?? (
+            <>
+              Start of show — {entry.dj_name}{program && ` (${program})`} @ {formatShortDate(entry.day)}{" "}
+              {formatShortTime(entry.time)}
+            </>
+          )}
         </td>
         <td className="action-cell"></td>
       </tr>
@@ -248,8 +274,12 @@ export default function EntryRow({
         <EmptyGripCell />
         {timeCell}
         <td colSpan={markerSpan}>
-          End of show — {entry.dj_name} @ {formatShortDate(entry.day)}{" "}
-          {formatShortTime(entry.time)}
+          {leading?.marker ?? (
+            <>
+              End of show — {entry.dj_name} @ {formatShortDate(entry.day)}{" "}
+              {formatShortTime(entry.time)}
+            </>
+          )}
         </td>
         <td className="action-cell"></td>
       </tr>
@@ -296,8 +326,10 @@ export default function EntryRow({
         {leading && (
           <td className="classic-indicator-cell">{leading.indicators}</td>
         )}
-        <td align="center">{entry.rotation ?? ""}</td>
-        <td align="center">
+        <td align="center" className="classic-playlist-cell">
+          {entry.rotation ?? ""}
+        </td>
+        <td align="center" className="classic-request-cell">
           {draft ? (
             <input
               type="checkbox"

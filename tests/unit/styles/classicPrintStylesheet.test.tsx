@@ -154,6 +154,57 @@ describe("classic print stylesheet", () => {
     expect(hiddenSelectors).toContain(TIME_CELL_CLASS);
   });
 
+  // The past-show table shares the live flowsheet's columns on screen, so its
+  // controls never move. Paper has no use for the drag handle or the action
+  // menu, and Playlist and Req. are what the capsule gutter already says; the
+  // printout goes back to the JSP's columns.
+  describe("prints the archived show in the JSP's columns", () => {
+    const PRINT_HIDDEN_COLUMNS = [
+      "grip-cell",
+      "classic-playlist-cell",
+      "classic-request-cell",
+      "action-cell",
+    ];
+    const hiddenSelector = () =>
+      printRules()
+        .filter((rule) =>
+          (rule.nodes ?? []).some(
+            (node) => node.type === "decl" && node.prop === "display" && node.value === "none"
+          )
+        )
+        .map((rule) => rule.selector)
+        .join(", ");
+
+    it.each([true, false])("leaves the JSP's five header columns (editable %s)", (editable) => {
+      const { container } = setup({ entries: [entry(1)], editable });
+      const printed = [...container.querySelectorAll("thead th")]
+        .filter((th) => !th.matches(hiddenSelector()))
+        .map((th) => th.textContent);
+      expect(printed).toEqual(["", "Artist", "Song", "Release", "Label"]);
+    });
+
+    it.each(PRINT_HIDDEN_COLUMNS)("hides every %s cell, header and rows", (cls) => {
+      const { container } = setup({ entries: [entry(1), entry(2)] });
+      const cells = [...container.querySelectorAll(`.${cls}`)];
+      expect(cells.filter((cell) => cell.tagName === "TH")).toHaveLength(1);
+      expect(cells.filter((cell) => cell.tagName === "TD")).toHaveLength(2);
+      for (const cell of cells) {
+        expect(cell.matches(hiddenSelector())).toBe(true);
+      }
+    });
+
+    it("leaves the live flowsheet's print alone", () => {
+      const parts = hiddenSelector()
+        .split(",")
+        .map((part) => part.trim())
+        .filter((part) => PRINT_HIDDEN_COLUMNS.some((cls) => part.includes(cls)));
+      expect(parts.length).toBe(PRINT_HIDDEN_COLUMNS.length);
+      for (const part of parts) {
+        expect(part).toContain(".classic-schedule-week-entries");
+      }
+    });
+  });
+
   it("aims every print rule at markup the archived show actually renders", () => {
     const { container } = setup({ entries: [entry(1), entry(2), entry(3)] });
 

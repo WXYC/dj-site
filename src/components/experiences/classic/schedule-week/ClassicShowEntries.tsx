@@ -2,9 +2,7 @@
 
 import type { FlowsheetRangeShow } from "@wxyc/shared";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
-import EditableShowTable, {
-  ShowTable,
-} from "@/src/components/experiences/classic/playlists/EditableShowTable";
+import ShowTable from "@/src/components/experiences/classic/playlists/ShowTable";
 import "@/src/styles/classic/wxyc.css";
 import "@/src/styles/classic/schedule-week.css";
 
@@ -67,15 +65,13 @@ export default function ClassicShowEntries({
         <p className="text">No entries recorded for this show.</p>
       )}
 
-      {entries.length > 0 &&
-        (editable ? (
-          <EditableShowTable
-            entries={entries}
-            highlightedEntryId={highlightedEntryId}
-          />
-        ) : (
-          <ShowTable entries={entries} highlightedEntryId={highlightedEntryId} />
-        ))}
+      {entries.length > 0 && (
+        <ShowTable
+          entries={entries}
+          highlightedEntryId={highlightedEntryId}
+          editable={editable}
+        />
+      )}
     </div>
   );
 }

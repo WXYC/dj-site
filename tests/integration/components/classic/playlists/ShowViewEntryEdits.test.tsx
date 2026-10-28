@@ -369,7 +369,7 @@ describe("classic ShowView entry editing", () => {
     [
       "a show end",
       createTestV2ShowEndEntry({ id: 3002, show_id: SHOW_ID, play_order: 2 }),
-      /End of show/,
+      /ended the set/,
     ],
   ])(
     "anchors and highlights %s row a search result linked to",
