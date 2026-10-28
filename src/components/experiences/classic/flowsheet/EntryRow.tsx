@@ -29,8 +29,12 @@ type Props = {
   entry: FlowsheetEntry;
   /** The program the open set is tagged as; named on its start-of-show row. */
   program?: string;
-  onUpdate: (entryId: number, data: UpdateRequestBody) => void;
-  onDelete: (entryId: number) => void;
+  /** With `onDelete`, the row's edit control. A row given neither keeps its
+   *  grip and action cells, empty, so a table without controls has the same
+   *  columns as one with them. */
+  onUpdate?: (entryId: number, data: UpdateRequestBody) => void;
+  /** The row's action menu; omitted, the action cell renders empty. */
+  onDelete?: (entryId: number) => void;
   /** Tubafrenzy marks the row ABOVE a segue pair with data-segue="true" and
    *  draws the bracket down to the next row in CSS. EntryTable computes this
    *  from the FOLLOWING entry's segue flag and passes it here. */
@@ -40,7 +44,7 @@ type Props = {
   /** A past-show table's two extra leading columns, the Time cell and the
    *  indicator gutter; the live flowsheet passes none. Marker rows then span
    *  the gutter too, and a message row, which the live flowsheet leaves unlisted,
-   *  is listed so the table never shows fewer rows than the read-only one. */
+   *  is listed so a past show never hides a row it logged. */
   leading?: { time: string; indicators: ReactNode };
   isDragging?: boolean;
   isDragOver?: boolean;
@@ -122,7 +126,7 @@ export default function EntryRow({
       toast.error(rejection);
       return;
     }
-    onUpdate(entry.id, {
+    onUpdate?.(entry.id, {
       ...trimmed,
       request_flag: draft.request_flag,
     });
@@ -198,7 +202,7 @@ export default function EntryRow({
           talkset
         </td>
         <td className="action-cell">
-          <EntryActionMenu entryId={entry.id} onDelete={onDelete} />
+          {onDelete && <EntryActionMenu entryId={entry.id} onDelete={onDelete} />}
         </td>
       </tr>
     );
@@ -265,7 +269,7 @@ export default function EntryRow({
           {messageEntryLabel(entry)}
         </td>
         <td className="action-cell">
-          <EntryActionMenu entryId={entry.id} onDelete={onDelete} />
+          {onDelete && <EntryActionMenu entryId={entry.id} onDelete={onDelete} />}
         </td>
       </tr>
     );
@@ -397,11 +401,13 @@ export default function EntryRow({
               </button>
             </>
           ) : (
-            <EntryActionMenu
-              entryId={entry.id}
-              onEdit={beginEdit}
-              onDelete={onDelete}
-            />
+            onDelete && (
+              <EntryActionMenu
+                entryId={entry.id}
+                onEdit={onUpdate && beginEdit}
+                onDelete={onDelete}
+              />
+            )
           )}
         </td>
       </tr>
@@ -425,7 +431,9 @@ export default function EntryRow({
       {timeCell}
       <td colSpan={markerSpan}>{messageEntryLabel(message)}</td>
       <td className="action-cell">
-        <EntryActionMenu entryId={message.id} onDelete={onDelete} />
+        {onDelete && (
+          <EntryActionMenu entryId={message.id} onDelete={onDelete} />
+        )}
       </td>
     </tr>
   );
