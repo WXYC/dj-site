@@ -865,6 +865,18 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] a:visited {
 		display: none;
 	}
 
+	/* The archived show shares the live flowsheet's columns on screen so its
+	   controls stay put whoever is looking. Paper wants the JSP's columns: the
+	   drag handle and action menu do nothing there, and Playlist and Req. say
+	   what the capsule gutter already says. Scoped to the archived show so the
+	   live flowsheet's printout is untouched. */
+	html[data-experience="classic"] .classic-schedule-week-entries .grip-cell,
+	html[data-experience="classic"] .classic-schedule-week-entries .classic-playlist-cell,
+	html[data-experience="classic"] .classic-schedule-week-entries .classic-request-cell,
+	html[data-experience="classic"] .classic-schedule-week-entries .action-cell {
+		display: none;
+	}
+
 	/* Tubafrenzy has no dark mode, so its print block had no reason to consider
 	   one. Classic's does, and it paints the body #2D2D2D — which a printer
 	   renders as a solid dark sheet under `printBackground`, or as pale grey text

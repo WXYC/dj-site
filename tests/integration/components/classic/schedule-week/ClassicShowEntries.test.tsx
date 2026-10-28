@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ComponentProps } from "react";
 import { screen, within } from "@testing-library/react";
 import type { FlowsheetRangeShow } from "@wxyc/shared";
@@ -7,6 +7,16 @@ import { RotationBin } from "@/lib/features/rotation/types";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
 import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
 import ClassicShowEntries from "@/src/components/experiences/classic/schedule-week/ClassicShowEntries";
+
+const toastError = vi.hoisted(() => vi.fn());
+vi.mock("sonner", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("sonner")>()),
+  toast: { error: toastError },
+}));
+
+beforeEach(() => {
+  toastError.mockClear();
+});
 
 const show = {
   id: 1951179,
@@ -53,9 +63,6 @@ const capsuleLabels = (container: HTMLElement) =>
       ".rotation-capsule, .request-capsule, .exclusive-capsule"
     ),
   ].map((c) => c.textContent);
-
-const rowClasses = (container: HTMLElement) =>
-  [...container.querySelectorAll("tbody tr")].map((r) => r.className);
 
 const headerLabels = (container: HTMLElement) =>
   [...container.querySelectorAll("thead th")].map((h) => h.textContent);
@@ -134,6 +141,48 @@ describe("ClassicShowEntries", () => {
       for (const row of container.querySelectorAll("tbody tr")) {
         expect(width(row)).toBe(width(header));
       }
+    });
+
+    // The past show's marker rows read the shared marker wording, as the
+    // archive always has. The live flowsheet's own marker text is not used
+    // here: it names a breakpoint by the minute it was logged and repeats the
+    // date and time the Time cell already gives.
+    it.each<[string, Partial<FlowsheetRangeEntryWire>, string]>([
+      [
+        "a talkset by its own message",
+        { entry_type: "talkset", message: "PSA: food drive" },
+        "Talkset: PSA: food drive",
+      ],
+      [
+        "a breakpoint by the hour it marks",
+        {
+          entry_type: "breakpoint",
+          message: "--- 3:00 PM BREAKPOINT ---",
+          add_time: "2026-08-27T19:02:03.000Z",
+          radio_hour: "2026-08-27T19:00:00.000Z",
+        },
+        "3:00 PM Breakpoint",
+      ],
+      [
+        "the start of the show by its DJ",
+        { entry_type: "show_start", dj_name: "DJ Chowder" },
+        "DJ Chowder started the set",
+      ],
+      [
+        "the end of the show by its DJ",
+        { entry_type: "show_end", dj_name: "DJ Chowder" },
+        "DJ Chowder ended the set",
+      ],
+      [
+        "a message row by its own text",
+        { entry_type: "message", message: "Fund drive pitch" },
+        "Fund drive pitch",
+      ],
+    ])("words %s", (_name, over, expected) => {
+      const { container } = renderAs([entry({ id: 1, ...over })]);
+      expect(container.querySelector("tbody td[colspan]")!.textContent).toBe(
+        expected
+      );
     });
 
     it("keeps a marker row's time cell", () => {
@@ -250,6 +299,37 @@ describe("ClassicShowEntries", () => {
     const { container: reading } = setup({ entries, editable: false });
 
     expect(shape(reading)).toEqual(withControls);
+  });
+
+  // A DJ's edit permission ends with the show, so it can end while a row is
+  // open for editing. The draft then has nowhere to go; it must not vanish
+  // without a word.
+  it("tells the DJ when an open edit can no longer be saved", async () => {
+    const entries = [entry({ id: 1 })];
+    const props = {
+      show,
+      entries,
+      isPartial: false,
+      partialEdge: null,
+      isLoading: false,
+    };
+    const { user, rerender } = setup({ entries, editable: true });
+
+    await user.click(screen.getByLabelText("Actions"));
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
+    const artist = screen.getByDisplayValue("Juana Molina");
+    await user.clear(artist);
+    await user.type(artist, "Stereolab");
+
+    rerender(<ClassicShowEntries {...props} editable={false} />);
+
+    expect(toastError).toHaveBeenCalledTimes(1);
+    expect(toastError.mock.calls[0][0]).toMatch(/unsaved/i);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByText("Juana Molina")).toBeInTheDocument();
+
+    rerender(<ClassicShowEntries {...props} editable />);
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
   it("renders no capsule for a playcut carrying none of the flags", () => {
