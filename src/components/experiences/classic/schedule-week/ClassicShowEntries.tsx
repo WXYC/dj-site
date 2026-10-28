@@ -2,45 +2,11 @@
 
 import type { FlowsheetRangeShow } from "@wxyc/shared";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
-import { rangeEntryTime } from "@/lib/features/flowsheet/entry-time";
-import { describeNonTrackEntry } from "@/lib/features/schedule-week/entryLabel";
-import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
-import EditableShowTable from "@/src/components/experiences/classic/playlists/EditableShowTable";
-import { EntryCapsules } from "@/src/components/experiences/classic/flowsheet/Capsule";
+import EditableShowTable, {
+  ShowTable,
+} from "@/src/components/experiences/classic/playlists/EditableShowTable";
 import "@/src/styles/classic/wxyc.css";
 import "@/src/styles/classic/schedule-week.css";
-
-// Time · [indicators] · Artist · Song · Release · Label. A marker row keeps its
-// own Time cell and spans the rest, so a column added to the header below has
-// to be counted here as well; nothing derives this from the header.
-//
-// Time is dj-site's own column — the JSP this reproduces ships five, starting at
-// the indicator gutter. Print drops it back to five (see the print block in
-// wxyc.css), which is why the Time cells are named rather than left to be
-// selected by position; `MARKER_SPAN` still covers the rest of the row either
-// way, since hiding a column leaves the marker spanning all that remain.
-const COLUMN_COUNT = 6;
-const MARKER_SPAN = COLUMN_COUNT - 1;
-
-const isMarker = (entry: FlowsheetRangeEntryWire) =>
-  entry.entry_type != null && entry.entry_type !== "track";
-
-// The row classes tubafrenzy's `.entry-table` family styles, assigned as
-// flowsheetRadioShowDisplayPublic.jsp assigns them: talksets get their own
-// row, every other non-track marker is a breakpoint row, and the zebra phase
-// comes from the entry's absolute position — markers included — rather than
-// from a count of the tracks alone. The one departure is the DJ site's own: a
-// who's-on (spotlight) row, which the JSP never had, gets a third class,
-// `spotlight-row`, rather than falling through to `breakpoint-row`.
-const rowClass = (entry: FlowsheetRangeEntryWire, index: number) => {
-  if (isMarker(entry)) {
-    if (entry.entry_type === "talkset") {
-      return "talkset-row";
-    }
-    return entry.entry_type === "spotlight" ? "spotlight-row" : "breakpoint-row";
-  }
-  return `entry-row ${index % 2 === 0 ? "entry-row-even" : "entry-row-odd"}`;
-};
 
 export default function ClassicShowEntries({
   show,
@@ -64,7 +30,10 @@ export default function ClassicShowEntries({
   highlightedEntryId?: number | null;
   /** The airing's own name, drawn beneath the program name when it adds something. */
   subtitle?: string | null;
-  /** The rows offer edit, delete and reorder; the caller supplies what those do. */
+  /**
+   * The rows offer edit, delete and reorder; the caller supplies what those do.
+   * The columns are the same either way, only the controls differ.
+   */
   editable?: boolean;
 }) {
   return (
@@ -98,80 +67,15 @@ export default function ClassicShowEntries({
         <p className="text">No entries recorded for this show.</p>
       )}
 
-      {entries.length > 0 && editable && (
-        <EditableShowTable
-          entries={entries}
-          highlightedEntryId={highlightedEntryId}
-        />
-      )}
-
-      {entries.length > 0 && !editable && (
-        <table className="entry-table">
-          <thead>
-            <tr className="entry-header">
-              <th
-                className="classic-schedule-week-time"
-                style={{ width: "5em" }}
-              >
-                Time
-              </th>
-              <th className="classic-indicator-cell" />
-              <th style={{ width: "25%" }}>Artist</th>
-              <th>Song</th>
-              <th>Release</th>
-              <th>Label</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry, index) => (
-              <tr
-                key={entry.id}
-                id={
-                  entry.id === highlightedEntryId
-                    ? entryAnchorId(entry.id)
-                    : undefined
-                }
-                className={
-                  entry.id === highlightedEntryId
-                    ? `${rowClass(entry, index)} playlistEntryHighlight`
-                    : rowClass(entry, index)
-                }
-              >
-                <td className="classic-schedule-week-time">
-                  {rangeEntryTime(entry)}
-                </td>
-                {isMarker(entry) ? (
-                  // Alignment is set here rather than in the stylesheet because
-                  // that is where the JSP sets it: `.breakpoint-row td` declares
-                  // `center` and every breakpoint then overrides it inline.
-                  <td
-                    colSpan={MARKER_SPAN}
-                    style={{
-                      textAlign:
-                        entry.entry_type === "talkset" ||
-                        entry.entry_type === "spotlight"
-                          ? "center"
-                          : "left",
-                    }}
-                  >
-                    {describeNonTrackEntry(entry)}
-                  </td>
-                ) : (
-                  <>
-                    <td className="classic-indicator-cell">
-                      <EntryCapsules entry={entry} />
-                    </td>
-                    <td>{entry.artist_name}</td>
-                    <td>{entry.track_title}</td>
-                    <td>{entry.album_title}</td>
-                    <td>{entry.record_label}</td>
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      {entries.length > 0 &&
+        (editable ? (
+          <EditableShowTable
+            entries={entries}
+            highlightedEntryId={highlightedEntryId}
+          />
+        ) : (
+          <ShowTable entries={entries} highlightedEntryId={highlightedEntryId} />
+        ))}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import type { FlowsheetRangeShow } from "@wxyc/shared";
 import { createComponentHarness } from "@/tests/helpers";
 import { RotationBin } from "@/lib/features/rotation/types";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
+import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
 import ClassicShowEntries from "@/src/components/experiences/classic/schedule-week/ClassicShowEntries";
 
 const show = {
@@ -56,31 +57,199 @@ const capsuleLabels = (container: HTMLElement) =>
 const rowClasses = (container: HTMLElement) =>
   [...container.querySelectorAll("tbody tr")].map((r) => r.className);
 
+const headerLabels = (container: HTMLElement) =>
+  [...container.querySelectorAll("thead th")].map((h) => h.textContent);
+
+// The live flowsheet's columns, with the past show's Time cell and indicator
+// gutter after the drag handle. The leading and trailing cells are the drag
+// handle and the action menu, unlabeled.
+const COLUMNS = [
+  "",
+  "Time",
+  "",
+  "Playlist",
+  "Req.",
+  "Artist",
+  "Song",
+  "Release",
+  "Label",
+  "",
+];
+
 describe("ClassicShowEntries", () => {
-  it("renders the six columns, the indicator gutter unlabeled", () => {
-    const { container } = renderEntries([entry({ id: 1 })]);
-    const headers = container.querySelectorAll("thead th");
-    expect([...headers].map((h) => h.textContent)).toEqual([
-      "Time",
-      "",
-      "Artist",
-      "Song",
-      "Release",
-      "Label",
-    ]);
+  // Whether the viewer may edit changes on the air — a DJ's view loses the
+  // controls the moment the show ends — so the layout must not depend on it.
+  // Only the controls differ.
+  describe.each([true, false])("with editable %s", (editable) => {
+    const renderAs = (
+      entries: FlowsheetRangeEntryWire[],
+      highlightedEntryId: number | null = null
+    ) => setup({ entries, editable, highlightedEntryId });
+
+    it("renders the live flowsheet's columns", () => {
+      const { container } = renderAs([entry({ id: 1 })]);
+      expect(headerLabels(container)).toEqual(COLUMNS);
+    });
+
+    it("renders a playcut across every column", () => {
+      const { container } = renderAs([entry({ id: 1, request_flag: true })]);
+      const cells = [...container.querySelectorAll("tbody td")];
+      expect(cells.map((c) => c.textContent).slice(1, -1)).toEqual([
+        "5:00 PM",
+        "REQUEST",
+        "",
+        "*",
+        "Juana Molina",
+        "la paradoja",
+        "DOGA",
+        "Sonamos",
+      ]);
+    });
+
+    it("gives every row the same column width", () => {
+      const { container } = renderAs([
+        entry({ id: 1 }),
+        entry({ id: 2, entry_type: "show_start", dj_name: "DJ Chowder" }),
+        entry({ id: 3, entry_type: "talkset", message: "TALKSET" }),
+        entry({
+          id: 4,
+          entry_type: "breakpoint",
+          message: "--- 3:00 PM BREAKPOINT ---",
+        }),
+        entry({
+          id: 5,
+          entry_type: "spotlight",
+          spotlight_role: "performer",
+          spotlight_name: "Porch Static",
+        }),
+      ]);
+
+      const width = (row: Element) =>
+        [...row.children].reduce(
+          (n, cell) => n + (Number(cell.getAttribute("colspan")) || 1),
+          0
+        );
+
+      const header = container.querySelector("thead tr")!;
+      for (const row of container.querySelectorAll("tbody tr")) {
+        expect(width(row)).toBe(width(header));
+      }
+    });
+
+    it("keeps a marker row's time cell", () => {
+      const { container } = renderAs([
+        entry({ id: 2, entry_type: "talkset", message: "TALKSET" }),
+      ]);
+      const time = container.querySelector("tbody .classic-schedule-week-time");
+      expect(time!.textContent).toBe("5:00 PM");
+      expect(capsuleLabels(container)).toEqual([]);
+    });
+
+    // A breakpoint is logged roughly a minute either side of the hour it
+    // marks, so its add_time reads the wrong hour.
+    it("times a breakpoint by the hour it marks, not the minute it was logged", () => {
+      const { container } = renderAs([
+        entry({
+          id: 3,
+          entry_type: "breakpoint",
+          message: "--- 9:00 PM BREAKPOINT ---",
+          add_time: "2026-08-23T00:59:00.000Z",
+          radio_hour: "2026-08-23T01:00:00.000Z",
+        }),
+      ]);
+      expect(
+        container.querySelector("tbody .classic-schedule-week-time")!.textContent
+      ).toBe("9:00 PM");
+    });
+
+    it.each<[NonNullable<FlowsheetRangeEntryWire["entry_type"]>, string]>([
+      ["track", "entry-row"],
+      ["talkset", "talkset-row"],
+      ["breakpoint", "breakpoint-row"],
+      ["show_start", "breakpoint-row"],
+      ["show_end", "breakpoint-row"],
+      ["spotlight", "spotlight-row"],
+    ])("gives a %s row the live flowsheet's %s class", (entry_type, expected) => {
+      const { container } = renderAs([
+        entry({
+          id: 1,
+          entry_type,
+          message: "MARKER",
+          dj_name: "DJ Chowder",
+          spotlight_role: "performer",
+          spotlight_name: "Porch Static",
+        }),
+      ]);
+      expect(container.querySelector("tbody tr")).toHaveClass(
+        "flowsheetEntryData",
+        expected
+      );
+    });
+
+    it("marks and anchors the row an archive link named", () => {
+      const { container } = renderAs(
+        [entry({ id: 1 }), entry({ id: 2, artist_name: "Stereolab" })],
+        2
+      );
+      const marked = container.querySelectorAll("tbody tr.playlistEntryHighlight");
+      expect(marked).toHaveLength(1);
+      expect(marked[0].id).toBe(entryAnchorId(2));
+      expect(container.querySelectorAll("tbody tr[id]")).toHaveLength(1);
+    });
+
+    it("names the table and its header row with tubafrenzy's classes", () => {
+      const { container } = renderAs([entry({ id: 1 })]);
+      expect(container.querySelector("table")).toHaveClass("entry-table");
+      expect(container.querySelector("thead tr")).toHaveClass("entry-header");
+    });
+
+    it("offers controls only when editable", () => {
+      const { container } = renderAs([
+        entry({ id: 1 }),
+        entry({ id: 2, entry_type: "talkset", message: "TALKSET" }),
+        entry({
+          id: 3,
+          entry_type: "spotlight",
+          spotlight_role: "performer",
+          spotlight_name: "Porch Static",
+        }),
+      ]);
+      expect(screen.queryAllByLabelText("Drag to reorder").length > 0).toBe(editable);
+      expect(screen.queryAllByLabelText("Actions").length > 0).toBe(editable);
+      expect(container.querySelectorAll('tr[draggable="true"]').length > 0).toBe(
+        editable
+      );
+      if (!editable) {
+        expect(container.querySelectorAll("button, input")).toHaveLength(0);
+      }
+    });
   });
 
-  it("renders a playcut across all six columns", () => {
-    const { container } = renderEntries([entry({ id: 1 })]);
-    const cells = container.querySelectorAll("tbody td");
-    expect([...cells].map((c) => c.textContent)).toEqual([
-      "5:00 PM",
-      "",
-      "Juana Molina",
-      "la paradoja",
-      "DOGA",
-      "Sonamos",
-    ]);
+  it("renders the same markup either way but for the controls", () => {
+    const entries = [
+      entry({ id: 1 }),
+      entry({ id: 2, entry_type: "talkset", message: "TALKSET" }),
+      entry({ id: 3, entry_type: "show_end", dj_name: "DJ Chowder" }),
+    ];
+    const shape = (container: HTMLElement) =>
+      [...container.querySelectorAll("tbody tr")].map((row) => ({
+        className: row.className,
+        cells: [...row.children].map((cell) => ({
+          className: cell.className,
+          colSpan: cell.getAttribute("colspan"),
+          text: cell.classList.contains("action-cell") ||
+            cell.classList.contains("grip-cell")
+            ? null
+            : cell.textContent,
+        })),
+      }));
+
+    const { container: editing, unmount } = setup({ entries, editable: true });
+    const withControls = shape(editing);
+    unmount();
+    const { container: reading } = setup({ entries, editable: false });
+
+    expect(shape(reading)).toEqual(withControls);
   });
 
   it("renders no capsule for a playcut carrying none of the flags", () => {
@@ -145,140 +314,19 @@ describe("ClassicShowEntries", () => {
     ]);
   });
 
-  it("keeps a marker row's time cell and spans it across the rest", () => {
-    const { container } = renderEntries([
-      entry({ id: 2, entry_type: "talkset", message: "TALKSET" }),
-    ]);
-
-    const cells = container.querySelectorAll("tbody td");
-    expect(cells.length).toBe(2);
-    expect(cells[0].textContent).toBe("5:00 PM");
-    expect(cells[1].getAttribute("colspan")).toBe("5");
-    expect(cells[1].textContent).toBe("Talkset");
-    expect(capsuleLabels(container)).toEqual([]);
-  });
-
-  // A breakpoint is logged roughly a minute either side of the hour it marks,
-  // so its add_time reads the wrong hour.
-  it("times a breakpoint by the hour it marks, not the minute it was logged", () => {
+  it("words a who's-on row in the client's wording, centered", () => {
     const { container } = renderEntries([
       entry({
-        id: 3,
-        entry_type: "breakpoint",
-        message: "--- 9:00 PM BREAKPOINT ---",
-        add_time: "2026-08-23T00:59:00.000Z",
-        radio_hour: "2026-08-23T01:00:00.000Z",
+        id: 1,
+        entry_type: "spotlight",
+        spotlight_role: "performer",
+        spotlight_name: "Porch Static",
+        message: "Spotlight: Porch Static",
       }),
     ]);
-
-    expect(container.querySelector("tbody td")!.textContent).toBe("9:00 PM");
-  });
-
-  it("gives every row the same column width", () => {
-    const { container } = renderEntries([
-      entry({ id: 1 }),
-      entry({ id: 2, entry_type: "show_start", dj_name: "DJ Chowder" }),
-      entry({
-        id: 3,
-        entry_type: "breakpoint",
-        message: "--- 3:00 PM BREAKPOINT ---",
-      }),
-    ]);
-
-    const width = (row: Element) =>
-      [...row.children].reduce(
-        (n, cell) => n + (Number(cell.getAttribute("colspan")) || 1),
-        0
-      );
-
-    const header = container.querySelector("thead tr")!;
-    for (const row of container.querySelectorAll("tbody tr")) {
-      expect(width(row)).toBe(width(header));
-    }
-  });
-
-  // The whole look of this table — dark header, padded bordered rows, the zebra,
-  // the coloured talkset and breakpoint bars — is tubafrenzy's `.entry-table`
-  // family, ported into wxyc.css and shared with every other Classic table. None
-  // of it is reachable from markup that does not name these classes, so the
-  // classes are the contract and are pinned here rather than left to a visual
-  // check nobody runs.
-  describe("wears tubafrenzy's entry-table classes", () => {
-    it("names the table and its header row", () => {
-      const { container } = renderEntries([entry({ id: 1 })]);
-      expect(container.querySelector("table")).toHaveClass("entry-table");
-      expect(container.querySelector("thead tr")).toHaveClass("entry-header");
-    });
-
-    it("stripes track rows even/odd", () => {
-      const { container } = renderEntries([
-        entry({ id: 1 }),
-        entry({ id: 2, artist_name: "Stereolab" }),
-        entry({ id: 3, artist_name: "Cat Power" }),
-      ]);
-      expect(rowClasses(container)).toEqual([
-        "entry-row entry-row-even",
-        "entry-row entry-row-odd",
-        "entry-row entry-row-even",
-      ]);
-    });
-
-    // The JSP stripes on the loop index over every entry, markers included, so a
-    // marker shifts the phase of the rows after it. Striping the tracks alone
-    // would put the wrong rows on the tint the moment a show has a talkset.
-    it("lets a marker take its turn in the zebra", () => {
-      const { container } = renderEntries([
-        entry({ id: 1 }),
-        entry({ id: 2, entry_type: "talkset", message: "TALKSET" }),
-        entry({ id: 3, artist_name: "Cat Power" }),
-      ]);
-      expect(rowClasses(container)).toEqual([
-        "entry-row entry-row-even",
-        "talkset-row",
-        "entry-row entry-row-even",
-      ]);
-    });
-
-    it.each<[NonNullable<FlowsheetRangeEntryWire["entry_type"]>, string]>([
-      ["talkset", "talkset-row"],
-      ["breakpoint", "breakpoint-row"],
-      ["show_start", "breakpoint-row"],
-      ["show_end", "breakpoint-row"],
-    ])("gives a %s row the %s class", (entry_type, expected) => {
-      const { container } = renderEntries([
-        entry({ id: 1, entry_type, message: "MARKER", dj_name: "DJ Chowder" }),
-      ]);
-      expect(rowClasses(container)).toEqual([expected]);
-    });
-
-    it("gives a who's-on row the spotlight-row class, centered, in the client's wording", () => {
-      const { container } = renderEntries([
-        entry({
-          id: 1,
-          entry_type: "spotlight",
-          spotlight_role: "performer",
-          spotlight_name: "Porch Static",
-          message: "Spotlight: Porch Static",
-        }),
-      ]);
-      const cell = container.querySelector("tbody tr.spotlight-row td[colspan]");
-
-      expect(rowClasses(container)).toEqual(["spotlight-row"]);
-      expect(cell).toHaveStyle({ textAlign: "center" });
-      expect(cell!.textContent).toBe("Porch Static live in the studio");
-    });
-
-    it("keeps the highlight alongside the row's own class", () => {
-      const { container } = renderEntries([entry({ id: 1 })]);
-      const { container: marked } = setup({
-        entries: [entry({ id: 1 })],
-        highlightedEntryId: 1,
-      });
-      expect(rowClasses(container)).toEqual(["entry-row entry-row-even"]);
-      expect(rowClasses(marked)).toEqual([
-        "entry-row entry-row-even playlistEntryHighlight",
-      ]);
-    });
+    const cell = container.querySelector("tbody tr.spotlight-row td[colspan]");
+    expect(cell).toHaveAttribute("align", "center");
+    expect(cell!.textContent).toBe("Porch Static live in the studio");
   });
 
   it("still reports an empty show rather than rendering a bare table", () => {

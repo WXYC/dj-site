@@ -105,11 +105,18 @@ describe("classic ShowView entry editing", () => {
     async (_role, authority, body, offered) => {
       mockAuth.authority = authority;
       servePlaylist(body);
-      renderWithProviders(<ShowView showId={SHOW_ID} />);
+      const { container } = renderWithProviders(<ShowView showId={SHOW_ID} />);
 
       await screen.findByText("la paradoja");
       expect(screen.queryAllByLabelText("Actions").length > 0).toBe(offered);
       expect(screen.queryAllByLabelText("Drag to reorder").length > 0).toBe(offered);
+      // Only the controls differ: the table keeps the same columns whoever is
+      // looking, and whether or not the show has ended.
+      expect(
+        [...container.querySelectorAll(".entry-table thead th")].map(
+          (th) => th.textContent,
+        ),
+      ).toEqual(["", "Time", "", "Playlist", "Req.", "Artist", "Song", "Release", "Label", ""]);
     },
   );
 

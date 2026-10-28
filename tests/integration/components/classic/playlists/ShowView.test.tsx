@@ -157,11 +157,10 @@ describe("classic archived-show view — flowsheetRadioShowDisplayPublic.jsp", (
     serveShow();
     renderWithProviders(<ShowView showId={SHOW_ID} />);
 
-    const row = (await screen.findByText("Talkset")).closest("tr")!;
-    const cells = row.querySelectorAll("td");
-    expect(cells.length).toBe(2);
-    expect(cells[0].textContent).toBe("6:00 PM");
-    expect(cells[1].getAttribute("colspan")).toBe("5");
+    const row = (await screen.findByText("talkset")).closest("tr")!;
+    const time = row.querySelector(".classic-schedule-week-time")!;
+    expect(time.textContent).toBe("6:00 PM");
+    expect(time.nextElementSibling!.getAttribute("colspan")).toBe("7");
   });
 });
 
