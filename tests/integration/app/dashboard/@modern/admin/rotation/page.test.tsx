@@ -41,13 +41,21 @@ vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
 }));
 
 // The page's own responsibility under test is the flag + auth gate, not the
-// header chrome or the list component (which has its own spec and would
+// header chrome or the shelf component (which has its own spec and would
 // otherwise fire real queries here).
 vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
-  default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
+  default: ({ title, children }: { title: string; children?: React.ReactNode }) => (
+    <div data-testid="page-header">
+      {title}
+      {children}
+    </div>
+  ),
 }));
-vi.mock("@/src/components/experiences/modern/admin/rotation/RotationAdminList", () => ({
-  default: () => <div data-testid="rotation-admin-list" />,
+vi.mock("@/src/components/experiences/modern/admin/rotation/shelf/AddToRotationButton", () => ({
+  default: () => <a href="/dashboard/admin/rotation/new">Add to rotation</a>,
+}));
+vi.mock("@/src/components/experiences/modern/admin/rotation/shelf/RotationShelf", () => ({
+  default: () => <div data-testid="rotation-shelf" />,
 }));
 
 import RotationListPage from "@/app/dashboard/@modern/admin/rotation/page";
@@ -93,7 +101,7 @@ describe("rotation list page", () => {
     process.env = originalEnv;
   });
 
-  it("reaches the page for a music director and renders the admin list", async () => {
+  it("reaches the page for a music director and renders the rotation shelf", async () => {
     mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
     mockGetUserRoleInOrganization.mockResolvedValue("musicDirector");
 
@@ -102,7 +110,7 @@ describe("rotation list page", () => {
 
     expect(mockRedirect).not.toHaveBeenCalled();
     expect(mockNotFound).not.toHaveBeenCalled();
-    expect(getByTestId("rotation-admin-list")).toBeInTheDocument();
+    expect(getByTestId("rotation-shelf")).toBeInTheDocument();
   });
 
   it("still reaches the page for a station manager", async () => {

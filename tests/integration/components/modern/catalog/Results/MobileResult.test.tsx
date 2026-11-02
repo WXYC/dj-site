@@ -261,7 +261,7 @@ describe("CatalogMobileResult rotation location", () => {
 
     // The tooltip element IS the location, nothing more: hovering plays or
     // the label must never pop rotation facts over them.
-    const pill = screen.getByTitle("Heavy rotation, card 1 “Late Aug”");
+    const pill = screen.getByLabelText("Heavy rotation, card 1 “Late Aug”");
     // Bin as text, the card number in its decorative (aria-hidden) circle.
     expect(pill).toHaveTextContent("H");
     expect(within(pill).getByText("1")).toHaveAttribute("aria-hidden", "true");
@@ -286,7 +286,7 @@ describe("CatalogMobileResult rotation location", () => {
       <CatalogMobileResult album={rotating} live={false} addToQueue={vi.fn()} />
     );
 
-    const pill = screen.getByTitle("Singles rotation");
+    const pill = screen.getByLabelText("Singles rotation");
     expect(pill.textContent).toBe("S");
     expect(screen.queryByText(/RO 87\/4/)).toBeNull();
   });
@@ -303,7 +303,7 @@ describe("CatalogMobileResult rotation location", () => {
     );
 
     expect(screen.getByText(/RO 87\/4/)).toBeDefined();
-    expect(screen.queryByTitle(/rotation/)).toBeNull();
+    expect(screen.queryByLabelText(/rotation/)).toBeNull();
   });
 
   it("leaves a rotating row unchanged when the flag is off", () => {
