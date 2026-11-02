@@ -168,14 +168,14 @@ export default function ShelfRowMenu({
                   <ListItemDecorator>
                     <RestoreOutlined />
                   </ListItemDecorator>
-                  Unkill
+                  Restore to rotation
                 </MenuItem>
               ) : (
                 <MenuItem color="warning" disabled={disabled} onClick={run(onKill)}>
                   <ListItemDecorator>
                     <RemoveCircleOutline />
                   </ListItemDecorator>
-                  Kill from rotation
+                  Retire from rotation
                 </MenuItem>
               )}
             </>

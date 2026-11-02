@@ -143,7 +143,7 @@ export default function ShelfCardHeader({
           <Tooltip
             variant="outlined"
             size="sm"
-            title={stale ? "Nothing added or killed on this card in a while" : "Days since anything was added or killed here"}
+            title={stale ? "Nothing added or retired on this card in a while" : "Days since anything was added or retired here"}
           >
             <Typography
               level="body-xs"

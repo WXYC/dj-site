@@ -266,7 +266,7 @@ export default function RotationShelf({ now: nowProp }: { now?: Date } = {}): JS
   const killWithUndo = async (row: RotationListRow) => {
     const ok = await kill(row.rotation_id);
     if (ok) {
-      toast(`Killed ${shelfRowName(row)}.`, {
+      toast(`Retired ${shelfRowName(row)}.`, {
         action: { label: "Undo", onClick: () => void unkill(row.rotation_id) },
       });
     }
@@ -501,7 +501,7 @@ export default function RotationShelf({ now: nowProp }: { now?: Date } = {}): JS
             aria-label="Records shown"
           >
             <Button value="active">Active {shelf.activeTotal}</Button>
-            <Button value="killed">Killed {shelf.killedTotal}</Button>
+            <Button value="killed">Retired {shelf.killedTotal}</Button>
           </ToggleButtonGroup>
         )}
         <ToggleButtonGroup
@@ -540,7 +540,7 @@ export default function RotationShelf({ now: nowProp }: { now?: Date } = {}): JS
               <th>Album / Artist</th>
               {view === "list" && <th style={{ width: 120 }}>Location</th>}
               <th style={{ width: 110, textAlign: "right" }}>
-                {shownStatus === "killed" ? "Killed" : "In bin"}
+                {shownStatus === "killed" ? "Retired" : "In bin"}
               </th>
               <th style={{ width: 56, textAlign: "right" }} aria-label="Links" />
               <th aria-label="Actions" style={{ width: 0, padding: 0 }} />
@@ -562,7 +562,7 @@ export default function RotationShelf({ now: nowProp }: { now?: Date } = {}): JS
               {filtersOn
                 ? "Nothing on this shelf matches."
                 : shownStatus === "killed"
-                  ? "Nothing has been killed from rotation yet."
+                  ? "Nothing has been retired from rotation yet."
                   : "The rotation shelf is empty."}
             </Typography>
             {filtersOn ? (

@@ -20,7 +20,7 @@ interface RotationClassifyControlProps {
  * always calls `setRotation`, which adds the picked bin and only then retires
  * every previously active entry, so re-binning is a single gesture here too and
  * a failure never drops the album out of rotation altogether. Each active entry
- * also carries its own Kill button for plain removal.
+ * also carries its own Retire button for plain removal.
  *
  * The fields live in a child so their hooks — including the rotation-list
  * query the active-entries list is derived from — run only for an authorized
@@ -137,7 +137,7 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
             disabled={isSettingRotation}
             onClick={() => kill(entry.rotation_id)}
           >
-            Kill {entry.rotation_bin}
+            Retire {entry.rotation_bin}
           </Button>
         </Stack>
       ))}

@@ -126,8 +126,8 @@ export function useRotationBinMove(rows: RotationListRow[] | undefined) {
           outcome.retireFailures[0].rotationId === row.rotation_id;
         toast.error(
           single
-            ? `Filed in ${ROTATION_BIN_LABELS[targetBin]}, but couldn't retire the ${ROTATION_BIN_LABELS[row.rotation_bin]} entry — kill it from this list.`
-            : `Filed in ${ROTATION_BIN_LABELS[targetBin]}, but couldn't retire every prior entry — kill them from this list.`,
+            ? `Filed in ${ROTATION_BIN_LABELS[targetBin]}, but couldn't retire the ${ROTATION_BIN_LABELS[row.rotation_bin]} entry — retire it from the shelf.`
+            : `Filed in ${ROTATION_BIN_LABELS[targetBin]}, but couldn't retire every prior entry — retire them from the shelf.`,
         );
       }
     } finally {
