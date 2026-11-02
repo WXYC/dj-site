@@ -139,7 +139,7 @@ export default function ShelfRow({
       <td style={{ width: 110, textAlign: "right" }}>
         {killed ? (
           <Typography level="body-xs" textColor="text.tertiary" sx={tabularNumsSx}>
-            killed {formatRotationDate(row.rotation_kill_date)}
+            retired {formatRotationDate(row.rotation_kill_date)}
           </Typography>
         ) : (
           <Stack alignItems="flex-end" spacing={0.25}>
@@ -221,26 +221,26 @@ export default function ShelfRow({
             </Tooltip>
           )}
           {killed ? (
-            <Tooltip variant="outlined" size="sm" title="Unkill">
+            <Tooltip variant="outlined" size="sm" title="Restore to rotation">
               <IconButton
                 size="sm"
                 variant="plain"
                 color="success"
                 disabled={pending}
-                aria-label={`Unkill: ${name}`}
+                aria-label={`Restore: ${name}`}
                 onClick={onUnkill}
               >
                 <RestoreOutlined />
               </IconButton>
             </Tooltip>
           ) : (
-            <Tooltip variant="outlined" size="sm" title="Kill from rotation">
+            <Tooltip variant="outlined" size="sm" title="Retire from rotation">
               <IconButton
                 size="sm"
                 variant="plain"
                 color="warning"
                 disabled={pending}
-                aria-label={`Kill: ${name}`}
+                aria-label={`Retire: ${name}`}
                 onClick={onKill}
               >
                 <RemoveCircleOutline />

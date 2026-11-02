@@ -65,13 +65,13 @@ export function useRotationRowActions() {
   // No kill_date on the kill: the server stamps CURRENT_DATE itself, one
   // write with no client/server clock skew.
   const kill = (rotationId: number) =>
-    withPending(rotationId, () => killRotationEntry({ rotation_id: rotationId }).unwrap(), "kill");
+    withPending(rotationId, () => killRotationEntry({ rotation_id: rotationId }).unwrap(), "retire");
 
   const unkill = (rotationId: number) =>
     withPending(
       rotationId,
       () => updateRotationRow({ rotation_id: rotationId, kill_date: null }).unwrap(),
-      "unkill",
+      "restore",
     );
 
   const moveToCard = (rotationId: number, cardId: number) =>

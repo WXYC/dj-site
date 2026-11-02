@@ -210,6 +210,6 @@ export function rotationCardDeleteConflictMessage(
     case "card_not_highest_in_bin":
       return "This card is no longer the last in its bin — bins shrink only from the top.";
     case "card_has_active_rotations":
-      return "This card still has active rotation releases filed on it — move or kill them first.";
+      return "This card still has active rotation releases filed on it — move or retire them first.";
   }
 }

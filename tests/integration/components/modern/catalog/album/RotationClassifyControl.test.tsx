@@ -175,7 +175,7 @@ describe("RotationClassifyControl", () => {
       await waitFor(() =>
         expect(screen.queryByRole("group", { name: "Rotation bin" })).not.toBeInTheDocument()
       );
-      expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Retire H" })).not.toBeInTheDocument();
       expect(backend.listRequests()).toBe(0);
     });
 
@@ -203,7 +203,7 @@ describe("RotationClassifyControl", () => {
       renderWithProviders(inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />));
 
       await screen.findByRole("group", { name: "Rotation bin" });
-      expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Retire H" })).not.toBeInTheDocument();
     });
 
     it("POSTs album_id and the picked rotation_bin", async () => {
@@ -274,7 +274,7 @@ describe("RotationClassifyControl", () => {
       await user.click(screen.getByRole("button", { name: "Set Rotation" }));
 
       await waitFor(() =>
-        expect(screen.getByRole("button", { name: "Kill H" })).toBeInTheDocument(),
+        expect(screen.getByRole("button", { name: "Retire H" })).toBeInTheDocument(),
       );
       expect(backend.killBodies()).toEqual([]);
       // The pick survives so the retry is one click, not a re-open of the picker.
@@ -291,7 +291,7 @@ describe("RotationClassifyControl", () => {
       await user.click(screen.getByRole("checkbox", { name: "Heavy rotation" }));
       await user.click(screen.getByRole("button", { name: "Set Rotation" }));
 
-      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Retire H" })).toBeInTheDocument();
       // The picker stays up so re-binning is a single gesture — it isn't
       // replaced by the kill affordance the way an XOR toggle would.
       expect(screen.getByRole("group", { name: "Rotation bin" })).toBeInTheDocument();
@@ -365,7 +365,7 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Retire H" })).toBeInTheDocument();
       // Re-binning goes through the picker without killing first, so it stays present.
       expect(screen.getByRole("group", { name: "Rotation bin" })).toBeInTheDocument();
     });
@@ -378,7 +378,7 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      await user.click(await screen.findByRole("button", { name: "Kill H" }));
+      await user.click(await screen.findByRole("button", { name: "Retire H" }));
 
       await waitFor(() =>
         expect(backend.killBodies()).toEqual([
@@ -410,12 +410,12 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      await user.click(await screen.findByRole("button", { name: "Kill H" }));
+      await user.click(await screen.findByRole("button", { name: "Retire H" }));
 
       expect(
         await screen.findByRole("group", { name: "Rotation bin" }),
       ).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Retire H" })).not.toBeInTheDocument();
     });
 
     it("shows an error toast when the PATCH fails", async () => {
@@ -429,12 +429,12 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      await user.click(await screen.findByRole("button", { name: "Kill H" }));
+      await user.click(await screen.findByRole("button", { name: "Retire H" }));
 
       await waitFor(() =>
         expect(toast.error).toHaveBeenCalledWith("Could not update rotation."),
       );
-      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Retire H" })).toBeInTheDocument();
     });
   });
 
@@ -455,7 +455,7 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<AlbumPanelSection albumId={JUANA_MOLINA_ALBUM_ID} />),
       );
 
-      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Retire H" })).toBeInTheDocument();
     });
 
     it("offers the bin picker for an album the rotation list doesn't cover", async () => {
@@ -469,7 +469,7 @@ describe("RotationClassifyControl", () => {
       expect(
         await screen.findByRole("group", { name: "Rotation bin" }),
       ).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Retire H" })).not.toBeInTheDocument();
     });
   });
 
@@ -491,8 +491,8 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Kill M" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Retire H" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Retire M" })).toBeInTheDocument();
       expect(screen.getByText("In Rotation (H)")).toBeInTheDocument();
       expect(screen.getByText("In Rotation (M)")).toBeInTheDocument();
     });
@@ -509,13 +509,13 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      await user.click(await screen.findByRole("button", { name: "Kill H" }));
+      await user.click(await screen.findByRole("button", { name: "Retire H" }));
 
       await waitFor(() =>
         expect(backend.killBodies()).toEqual([{ rotation_id: JUANA_MOLINA_ROTATION_ID }]),
       );
-      expect(await screen.findByRole("button", { name: "Kill M" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Retire M" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Retire H" })).not.toBeInTheDocument();
     });
 
     it("shows the busy state only on the row whose kill is in flight, not every active bin", async () => {
@@ -530,8 +530,8 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      const killH = await screen.findByRole("button", { name: "Kill H" });
-      const killM = screen.getByRole("button", { name: "Kill M" });
+      const killH = await screen.findByRole("button", { name: "Retire H" });
+      const killM = screen.getByRole("button", { name: "Retire M" });
       await user.click(killH);
 
       await waitFor(() => expect(killH).toBeDisabled());
@@ -539,9 +539,9 @@ describe("RotationClassifyControl", () => {
 
       releaseKill();
       await waitFor(() =>
-        expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument(),
+        expect(screen.queryByRole("button", { name: "Retire H" })).not.toBeInTheDocument(),
       );
-      expect(screen.getByRole("button", { name: "Kill M" })).not.toBeDisabled();
+      expect(screen.getByRole("button", { name: "Retire M" })).not.toBeDisabled();
     });
 
     it("keeps a row busy while its own kill is in flight even after a second row's kill is issued", async () => {
@@ -556,8 +556,8 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      const killH = await screen.findByRole("button", { name: "Kill H" });
-      const killM = screen.getByRole("button", { name: "Kill M" });
+      const killH = await screen.findByRole("button", { name: "Retire H" });
+      const killM = screen.getByRole("button", { name: "Retire M" });
 
       await user.click(killH);
       await waitFor(() => expect(killH).toBeDisabled());
@@ -569,8 +569,8 @@ describe("RotationClassifyControl", () => {
 
       releaseKill();
       await waitFor(() => {
-        expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
-        expect(screen.queryByRole("button", { name: "Kill M" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Retire H" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "Retire M" })).not.toBeInTheDocument();
       });
     });
   });
@@ -616,7 +616,7 @@ describe("RotationClassifyControl", () => {
       endpointRecovered = true;
       await user.click(screen.getByRole("button", { name: "Retry" }));
 
-      expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Retire H" })).toBeInTheDocument();
     });
   });
 
