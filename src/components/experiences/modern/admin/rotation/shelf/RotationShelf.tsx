@@ -328,8 +328,28 @@ export default function RotationShelf({ now: nowProp }: { now?: Date } = {}): JS
     });
   };
 
-  const renderByCard = () =>
-    bins.map((b) => {
+  const renderByCard = () => {
+    // The cards are what this view is made of: until they are known it shows
+    // placeholders, and an outage shows only the retry — never empty bins.
+    if (cards == null) {
+      return (
+        <tbody>
+          {cardsQuery.isError ? (
+            <tr>
+              <td colSpan={columns}>
+                <ReadRetryAlert
+                  message="Could not load the rotation cards."
+                  onRetry={() => void cardsQuery.refetch()}
+                />
+              </td>
+            </tr>
+          ) : (
+            <SkeletonRows columns={columns} />
+          )}
+        </tbody>
+      );
+    }
+    return bins.map((b) => {
       const binCards: RotationCardWithCount[] = cardsByBin.get(b) ?? [];
       const inBin = activeShown.filter((row) => row.rotation_bin === b);
       const uncarded = inBin.filter((row) => row.card?.id == null || !binCards.some((c) => c.id === row.card?.id));
@@ -414,6 +434,7 @@ export default function RotationShelf({ now: nowProp }: { now?: Date } = {}): JS
         </tbody>
       );
     });
+  };
 
   return (
     // Fills the page below the header; the table scrolls inside its sheet, so
@@ -601,10 +622,6 @@ export default function RotationShelf({ now: nowProp }: { now?: Date } = {}): JS
         )}
 
       </Sheet>
-
-      {view === "cards" && cardsQuery.isError && cards == null && (
-        <ReadRetryAlert message="Could not load the rotation cards." onRetry={() => void cardsQuery.refetch()} />
-      )}
 
       <ConfirmDialog
         open={windowsOpen}

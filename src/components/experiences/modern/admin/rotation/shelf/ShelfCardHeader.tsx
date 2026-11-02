@@ -28,6 +28,7 @@ import { rotationCardName } from "@/lib/features/rotation/cards";
 import type { RotationBin, RotationCardWithCount } from "@/lib/features/rotation/types";
 import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
 import { tabularNumsSx } from "@/src/utilities/modern/recordTableSx";
+import { useMenuFocus } from "@/src/hooks/useMenuFocus";
 
 export type ShelfCardHeaderProps = {
   card: RotationCardWithCount;
@@ -179,58 +180,88 @@ export default function ShelfCardHeader({
             </IconButton>
           </Stack>
         </Stack>
-        {menuAnchor &&
-          createPortal(
-            <ClickAwayListener onClickAway={() => setMenuAnchor(null)}>
-              <Popper open anchorEl={menuAnchor} placement="bottom-end" sx={{ zIndex: 10000 }}>
-                <MenuList
-                  variant="outlined"
-                  size="sm"
-                  autoFocus
-                  aria-label={`Actions for ${cardName}`}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape" || event.key === "Tab") setMenuAnchor(null);
-                  }}
-                  sx={{ boxShadow: "md", bgcolor: "background.popup", minWidth: 240 }}
-                >
-                  <MenuItem
-                    onClick={() => {
-                      setMenuAnchor(null);
-                      setEditing(true);
-                    }}
-                  >
-                    <ListItemDecorator>
-                      <EditOutlined />
-                    </ListItemDecorator>
-                    Rename
-                  </MenuItem>
-                  <MenuItem
-                    color="warning"
-                    disabled={!deletable || pending}
-                    aria-label={`Delete: ${cardName}`}
-                    onClick={() => {
-                      setMenuAnchor(null);
-                      onDelete();
-                    }}
-                  >
-                    <ListItemDecorator>
-                      <DeleteOutline />
-                    </ListItemDecorator>
-                    <ListItemContent>
-                      Delete {cardName}
-                      {!deletable && (
-                        <Typography level="body-xs" textColor="text.tertiary" sx={{ whiteSpace: "normal" }}>
-                          {DELETE_RULE}
-                        </Typography>
-                      )}
-                    </ListItemContent>
-                  </MenuItem>
-                </MenuList>
-              </Popper>
-            </ClickAwayListener>,
-            document.body,
-          )}
+        {menuAnchor && (
+          <CardMenu
+            anchor={menuAnchor}
+            cardName={cardName}
+            deletable={deletable}
+            pending={pending}
+            onClose={() => setMenuAnchor(null)}
+            onRename={() => setEditing(true)}
+            onDelete={onDelete}
+          />
+        )}
       </th>
     </tr>
+  );
+}
+
+function CardMenu({
+  anchor,
+  cardName,
+  deletable,
+  pending,
+  onClose,
+  onRename,
+  onDelete,
+}: {
+  anchor: HTMLElement;
+  cardName: string;
+  deletable: boolean;
+  pending: boolean;
+  onClose: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}): JSX.Element {
+  const listRef = useMenuFocus<HTMLUListElement>(anchor);
+  return createPortal(
+    <ClickAwayListener onClickAway={onClose}>
+      <Popper open anchorEl={anchor} placement="bottom-end" sx={{ zIndex: 10000 }}>
+        <MenuList
+          ref={listRef}
+          variant="outlined"
+          size="sm"
+          aria-label={`Actions for ${cardName}`}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" || event.key === "Tab") onClose();
+          }}
+          sx={{ boxShadow: "md", bgcolor: "background.popup", minWidth: 240 }}
+        >
+          <MenuItem
+            onClick={() => {
+              onClose();
+              onRename();
+            }}
+          >
+            <ListItemDecorator>
+              <EditOutlined />
+            </ListItemDecorator>
+            Rename
+          </MenuItem>
+          <MenuItem
+            color="warning"
+            disabled={!deletable || pending}
+            aria-label={`Delete: ${cardName}`}
+            onClick={() => {
+              onClose();
+              onDelete();
+            }}
+          >
+            <ListItemDecorator>
+              <DeleteOutline />
+            </ListItemDecorator>
+            <ListItemContent>
+              Delete {cardName}
+              {!deletable && (
+                <Typography level="body-xs" textColor="text.tertiary" sx={{ whiteSpace: "normal" }}>
+                  {DELETE_RULE}
+                </Typography>
+              )}
+            </ListItemContent>
+          </MenuItem>
+        </MenuList>
+      </Popper>
+    </ClickAwayListener>,
+    document.body,
   );
 }
