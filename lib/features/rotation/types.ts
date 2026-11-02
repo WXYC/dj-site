@@ -101,6 +101,13 @@ export type RotationListRow = {
    * renderer must not bind one into an href without checking it.
    */
   urls?: string[];
+  /**
+   * The linked library release's cover. Optional because `GET /library/rotation`
+   * does not select it yet; every artwork surface falls back to the
+   * genre-gradient lettercode placeholder when it is absent or null, so the
+   * list renders the same before and after the backend starts sending it.
+   */
+  artwork_url?: string | null;
 };
 
 /**

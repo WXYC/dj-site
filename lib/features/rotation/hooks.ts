@@ -38,10 +38,11 @@ export function useRotationRowActions() {
     rotationId: number,
     run: () => Promise<unknown>,
     failureVerb: string,
-  ) => {
+  ): Promise<boolean> => {
     setPendingRotationIds((prev) => new Set(prev).add(rotationId));
     try {
       await run();
+      return true;
     } catch (err) {
       if (isUnmessagedHttpError(err)) {
         toast.error(
@@ -51,6 +52,7 @@ export function useRotationRowActions() {
           ),
         );
       }
+      return false;
     } finally {
       setPendingRotationIds((prev) => {
         const next = new Set(prev);
