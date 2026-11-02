@@ -82,6 +82,90 @@ export default function ShelfRowMenu({
   };
   const showMove = !killed;
 
+  // Joy's MenuList stamps first/last-child props onto its direct children, so
+  // every item is built into one flat array: a Fragment cannot take them.
+  const items: JSX.Element[] = [];
+  if (scope === "all" && canOpen) {
+    items.push(
+      <MenuItem key="open" onClick={run(onOpen)}>
+        <ListItemDecorator>
+          <InfoOutlined />
+        </ListItemDecorator>
+        Open album
+      </MenuItem>,
+    );
+  }
+  if (showMove) {
+    if (items.length > 0) items.push(<ListDivider key="d-move" />);
+    items.push(
+      <ListSubheader key="h-bin" sticky={false} sx={{ color: "text.tertiary" }}>
+        Move to bin
+      </ListSubheader>,
+    );
+    for (const bin of ROTATION_BINS) {
+      const current = bin === row.rotation_bin;
+      items.push(
+        <MenuItem
+          key={`bin-${bin}`}
+          disabled={current || disabled || moveLocked || !canMoveBin}
+          aria-label={`Move to ${ROTATION_BIN_LABELS[bin]}: ${name}`}
+          onClick={run(() => onMoveBin(bin))}
+        >
+          <ListItemDecorator>
+            <BinLetter bin={bin} />
+          </ListItemDecorator>
+          {ROTATION_BIN_LABELS[bin]}
+          {current && <Check sx={{ ml: "auto" }} fontSize="small" />}
+        </MenuItem>,
+      );
+    }
+    if (binCards.length > 0) {
+      items.push(
+        <ListDivider key="d-card" />,
+        <ListSubheader key="h-card" sticky={false} sx={{ color: "text.tertiary" }}>
+          Card within {ROTATION_BIN_LABELS[row.rotation_bin]}
+        </ListSubheader>,
+      );
+      for (const card of binCards) {
+        const current = card.id === row.card?.id;
+        items.push(
+          <MenuItem
+            key={`card-${card.id}`}
+            disabled={current || disabled}
+            aria-label={`Move to ${cardText(card)}: ${name}`}
+            onClick={run(() => onSelectCard(card.id))}
+          >
+            <ListItemDecorator>
+              <RotationCardBadge number={card.number} bin={row.rotation_bin} />
+            </ListItemDecorator>
+            {card.name ?? `Card ${card.number}`}
+            {current && <Check sx={{ ml: "auto" }} fontSize="small" />}
+          </MenuItem>,
+        );
+      }
+    }
+  }
+  if (scope === "all") {
+    items.push(
+      <ListDivider key="d-retire" />,
+      killed ? (
+        <MenuItem key="restore" color="success" disabled={disabled} onClick={run(onUnkill)}>
+          <ListItemDecorator>
+            <RestoreOutlined />
+          </ListItemDecorator>
+          Restore to rotation
+        </MenuItem>
+      ) : (
+        <MenuItem key="retire" color="warning" disabled={disabled} onClick={run(onKill)}>
+          <ListItemDecorator>
+            <RemoveCircleOutline />
+          </ListItemDecorator>
+          Retire from rotation
+        </MenuItem>
+      ),
+    );
+  }
+
   const content = (
     <ClickAwayListener onClickAway={onClose}>
       <Popper
@@ -102,84 +186,7 @@ export default function ShelfRowMenu({
           }}
           sx={{ boxShadow: "md", bgcolor: "background.popup", minWidth: 220 }}
         >
-          {scope === "all" && canOpen && (
-            <MenuItem onClick={run(onOpen)}>
-              <ListItemDecorator>
-                <InfoOutlined />
-              </ListItemDecorator>
-              Open album
-            </MenuItem>
-          )}
-          {showMove && (
-            <>
-              {scope === "all" && canOpen && <ListDivider />}
-              <ListSubheader sticky={false} sx={{ color: "text.tertiary" }}>
-                Move to bin
-              </ListSubheader>
-              {ROTATION_BINS.map((bin) => {
-                const current = bin === row.rotation_bin;
-                return (
-                  <MenuItem
-                    key={bin}
-                    disabled={current || disabled || moveLocked || !canMoveBin}
-                    aria-label={`Move to ${ROTATION_BIN_LABELS[bin]}: ${name}`}
-                    onClick={run(() => onMoveBin(bin))}
-                  >
-                    <ListItemDecorator>
-                      <BinLetter bin={bin} />
-                    </ListItemDecorator>
-                    {ROTATION_BIN_LABELS[bin]}
-                    {current && <Check sx={{ ml: "auto" }} fontSize="small" />}
-                  </MenuItem>
-                );
-              })}
-              {binCards.length > 0 && (
-                <>
-                  <ListDivider />
-                  <ListSubheader sticky={false} sx={{ color: "text.tertiary" }}>
-                    Card within {ROTATION_BIN_LABELS[row.rotation_bin]}
-                  </ListSubheader>
-                  {binCards.map((card) => {
-                    const current = card.id === row.card?.id;
-                    return (
-                      <MenuItem
-                        key={card.id}
-                        disabled={current || disabled}
-                        aria-label={`Move to ${cardText(card)}: ${name}`}
-                        onClick={run(() => onSelectCard(card.id))}
-                      >
-                        <ListItemDecorator>
-                          <RotationCardBadge number={card.number} bin={row.rotation_bin} />
-                        </ListItemDecorator>
-                        {card.name ?? `Card ${card.number}`}
-                        {current && <Check sx={{ ml: "auto" }} fontSize="small" />}
-                      </MenuItem>
-                    );
-                  })}
-                </>
-              )}
-            </>
-          )}
-          {scope === "all" && (
-            <>
-              <ListDivider />
-              {killed ? (
-                <MenuItem color="success" disabled={disabled} onClick={run(onUnkill)}>
-                  <ListItemDecorator>
-                    <RestoreOutlined />
-                  </ListItemDecorator>
-                  Restore to rotation
-                </MenuItem>
-              ) : (
-                <MenuItem color="warning" disabled={disabled} onClick={run(onKill)}>
-                  <ListItemDecorator>
-                    <RemoveCircleOutline />
-                  </ListItemDecorator>
-                  Retire from rotation
-                </MenuItem>
-              )}
-            </>
-          )}
+          {items}
         </MenuList>
       </Popper>
     </ClickAwayListener>
