@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { fakeRotationAdminEndpoints, setFieldValue } from "@/tests/helpers";
+import { createTestRotationListRow, fakeRotationAdminEndpoints, setFieldValue } from "@/tests/helpers";
 
 vi.mock("next/font/google", () => ({
   Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }),
@@ -32,7 +32,7 @@ import RotationThresholdsForm from "@/src/components/experiences/modern/admin/ro
 
 const heavy = () => screen.getByLabelText("Heavy");
 const medium = () => screen.getByLabelText("Medium");
-const saveButton = () => screen.getByRole("button", { name: "Save" });
+const saveButton = () => screen.getByRole("button", { name: "Save windows" });
 
 async function renderForm(options?: Parameters<typeof fakeRotationAdminEndpoints>[2]) {
   const fake = fakeRotationAdminEndpoints([], [], options);
@@ -46,6 +46,28 @@ describe("RotationThresholdsForm", () => {
     vi.clearAllMocks();
   });
 
+  it("shows beside each window how many active records it would mark past, and follows the draft", async () => {
+    const now = new Date("2026-10-20T12:00:00Z");
+    const rows = [
+      createTestRotationListRow({ rotation_id: 1, rotation_bin: "H", rotation_add_date: "2026-08-01" }),
+      createTestRotationListRow({ rotation_id: 2, rotation_bin: "H", rotation_add_date: "2026-10-10" }),
+      createTestRotationListRow({
+        rotation_id: 3,
+        rotation_bin: "H",
+        rotation_add_date: "2026-06-01",
+        rotation_kill_date: "2026-07-01",
+      }),
+    ];
+    fakeRotationAdminEndpoints([], [], { windowDays: { H: 30, M: 45, L: 90, S: 120 } });
+    renderWithProviders(<RotationThresholdsForm rows={rows} now={now} />);
+    await screen.findByLabelText("Heavy");
+
+    // One active Heavy record is past 30 days; the retired one never counts.
+    expect(screen.getAllByText("1 past")).toHaveLength(1);
+    setFieldValue(heavy(), "5");
+    expect(await screen.findByText("2 past")).toBeInTheDocument();
+  });
+
   it("seeds each bin's window from the read and offers no card-staleness field", async () => {
     await renderForm({ windowDays: { H: 30, M: 45, L: 90, S: 120 } });
 
@@ -57,14 +79,14 @@ describe("RotationThresholdsForm", () => {
     expect(saveButton()).toBeDisabled();
   });
 
-  it("shows only a progress bar while the read is pending", async () => {
+  it("shows only loading placeholders while the read is pending", async () => {
     const fake = fakeRotationAdminEndpoints([], []);
     fake.holdThresholdsReads();
     renderWithProviders(<RotationThresholdsForm />);
 
-    expect(await screen.findByRole("progressbar", { name: "Loading rotation thresholds" })).toBeInTheDocument();
+    expect(await screen.findByLabelText("Loading replacement windows")).toHaveAttribute("aria-busy", "true");
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save windows" })).not.toBeInTheDocument();
 
     await act(async () => {
       await fake.releaseThresholdsReads();
@@ -77,9 +99,9 @@ describe("RotationThresholdsForm", () => {
     fake.failThresholdsReads();
     const { user } = renderWithProviders(<RotationThresholdsForm />);
 
-    expect(await screen.findByText("Could not load the rotation thresholds.")).toBeInTheDocument();
+    expect(await screen.findByText("Could not load the replacement windows.")).toBeInTheDocument();
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save windows" })).not.toBeInTheDocument();
 
     fake.recoverThresholdsReads();
     await user.click(screen.getByRole("button", { name: "Retry" }));
@@ -114,7 +136,7 @@ describe("RotationThresholdsForm", () => {
     await user.click(saveButton());
 
     await waitFor(() => expect(fake.thresholdsPatchBodies()).toEqual([{ window_days: { H: 45 } }]));
-    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledWith("Saved the rotation thresholds."));
+    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledWith("Saved the replacement windows."));
     await waitFor(() => expect(saveButton()).toBeDisabled());
     expect(heavy()).toHaveValue(45);
     expect(medium()).toHaveValue(60);
@@ -158,14 +180,14 @@ describe("RotationThresholdsForm", () => {
     await user.click(saveButton());
     await waitFor(() => expect(fake.thresholdsPatchBodies()).toHaveLength(1));
 
-    expect(await screen.findByText("Could not load the rotation thresholds.")).toBeInTheDocument();
+    expect(await screen.findByText("Could not load the replacement windows.")).toBeInTheDocument();
     expect(medium()).toBeDisabled();
     expect(heavy()).toBeDisabled();
     expect(saveButton()).toBeDisabled();
 
     fake.recoverThresholdsReads();
     await user.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() => expect(screen.queryByText("Could not load the rotation thresholds.")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Could not load the replacement windows.")).not.toBeInTheDocument());
     await waitFor(() => expect(heavy()).toHaveValue(45));
   });
 });
