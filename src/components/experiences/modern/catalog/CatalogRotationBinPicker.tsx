@@ -6,11 +6,10 @@ import {
   type Rotation,
 } from "@/lib/features/rotation/types";
 import {
-  ROTATION_BIN_PALETTE_SLOT,
   rotationBinSurfaceStyle,
 } from "@/src/utilities/modern/rotationBinColors";
 import { Checkbox, Stack, Typography } from "@mui/joy";
-import { useTheme } from "@mui/joy/styles";
+import { rotationBinColors } from "@/lib/features/experiences/modern/tokens/roles";
 
 // Single-select bin chips; clicking the selected bin again clears it, which plain radios can't express.
 export default function CatalogRotationBinPicker({
@@ -26,7 +25,6 @@ export default function CatalogRotationBinPicker({
   size?: "sm" | "md";
   showLabel?: boolean;
 }) {
-  const theme = useTheme();
 
   const handleToggle = (bin: Rotation) => {
     if (disabled) return;
@@ -50,7 +48,7 @@ export default function CatalogRotationBinPicker({
         {ROTATION_BINS.map((bin) => {
           const isSelected = selectedBin === bin;
           const tokens =
-            theme.vars.palette.rotation[ROTATION_BIN_PALETTE_SLOT[bin]];
+            rotationBinColors(bin);
           const surface = rotationBinSurfaceStyle(tokens, isSelected);
           return (
             <Checkbox

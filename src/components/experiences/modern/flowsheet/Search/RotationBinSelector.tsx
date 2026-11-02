@@ -2,11 +2,10 @@
 
 import { Rotation, ROTATION_BINS } from "@/lib/features/rotation/types";
 import {
-  ROTATION_BIN_PALETTE_SLOT,
   rotationBinSurfaceStyle,
 } from "@/src/utilities/modern/rotationBinColors";
 import { Box, Stack } from "@mui/joy";
-import { useTheme } from "@mui/joy/styles";
+import { rotationBinColors } from "@/lib/features/experiences/modern/tokens/roles";
 
 export default function RotationBinSelector({
   selectedBin,
@@ -17,7 +16,6 @@ export default function RotationBinSelector({
   onSelectBin: (bin: Rotation) => void;
   disabled: boolean;
 }) {
-  const theme = useTheme();
 
   return (
     <Stack
@@ -29,7 +27,7 @@ export default function RotationBinSelector({
     >
       {ROTATION_BINS.map((bin) => {
         const isSelected = selectedBin === bin;
-        const tokens = theme.vars.palette.rotation[ROTATION_BIN_PALETTE_SLOT[bin]];
+        const tokens = rotationBinColors(bin);
         const style = rotationBinSurfaceStyle(tokens, isSelected);
         return (
           <Box

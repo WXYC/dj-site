@@ -4,7 +4,7 @@ import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { isExclusive } from "@/lib/features/flowsheet/indicators";
 import { WXYC_EXCLUSIVE_PURPLE } from "@/src/utilities/modern/brandColors";
 import {
-  ROTATION_TONES,
+  rotationBinSx,
   STATUS_CHIP_SX,
 } from "@/lib/features/experiences/modern/tokens/roles";
 import { Chip } from "@mui/joy";
@@ -25,9 +25,8 @@ export default function SongEntryStatusChips({
         <Chip
           size="sm"
           variant="solid"
-          color={ROTATION_TONES[entry.rotation]?.color ?? "neutral"}
           aria-label={`Rotation ${entry.rotation}`}
-          sx={STATUS_CHIP_SX}
+          sx={{ ...STATUS_CHIP_SX, ...rotationBinSx(entry.rotation, "solid") }}
         >
           {entry.rotation}
         </Chip>

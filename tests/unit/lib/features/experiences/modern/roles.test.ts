@@ -5,7 +5,8 @@ import {
   FORMAT_TONES,
   genreTone,
   GENRE_TONES,
-  ROTATION_TONES,
+  rotationBinColors,
+  rotationBinSx,
 } from "@/lib/features/experiences/modern/tokens/roles";
 
 describe("formatTone", () => {
@@ -160,11 +161,23 @@ describe("formatLabel", () => {
   });
 });
 
-describe("role maps are exhaustive over their domains", () => {
-  it("covers every rotation bin", () => {
-    // Compile-time exhaustiveness is enforced by Record<Rotation, Tone>;
-    // spot-check a couple at runtime.
-    expect(ROTATION_TONES.H.color).toBe("primary");
-    expect(ROTATION_TONES.S.color).toBe("neutral");
+describe("rotation bin colors", () => {
+  it("resolves every bin to its theme rotation palette variables", () => {
+    expect(rotationBinColors("H").bgSelected).toBe("var(--wxyc-palette-rotation-heavy-bgSelected)");
+    expect(rotationBinColors("M").text).toBe("var(--wxyc-palette-rotation-medium-text)");
+    expect(rotationBinColors("L").border).toBe("var(--wxyc-palette-rotation-light-border)");
+    expect(rotationBinColors("S").bg).toBe("var(--wxyc-palette-rotation-singles-bg)");
+  });
+
+  it("paints solid status from the selected tokens and soft targets from the rest tokens", () => {
+    expect(rotationBinSx("H", "solid")).toMatchObject({
+      backgroundColor: "var(--wxyc-palette-rotation-heavy-bgSelected)",
+      color: "var(--wxyc-palette-rotation-heavy-textSelected)",
+    });
+    expect(rotationBinSx("L", "soft")).toMatchObject({
+      backgroundColor: "var(--wxyc-palette-rotation-light-bg)",
+      color: "var(--wxyc-palette-rotation-light-text)",
+      "&:hover": { backgroundColor: "var(--wxyc-palette-rotation-light-bgHover)" },
+    });
   });
 });

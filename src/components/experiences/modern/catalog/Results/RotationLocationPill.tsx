@@ -1,6 +1,8 @@
 "use client";
 
 import Chip from "@mui/joy/Chip";
+import Tooltip from "@mui/joy/Tooltip";
+import { rotationBinSx } from "@/lib/features/experiences/modern/tokens/roles";
 import type { RotationLocation } from "@/lib/features/rotation/location";
 import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
 
@@ -11,10 +13,11 @@ import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
  * under the Call # header as an unfamiliar call-number format and walks to
  * the stacks anyway — the outcome the location swap exists to prevent.
  *
- * The card number rides in a circular badge; the card's optional name travels
- * only in the pill's own `title`, so the tooltip can never hang over
- * neighboring metadata and mislabel it. The badge is decorative — the whole
- * "…rotation, card N" reading stays in that `title`.
+ * Painted in the bin's own colors, so the letter and the card badge inside
+ * it can never disagree in hue. The card's optional name travels only in the
+ * pill's tooltip, so it can never hang over neighboring metadata and mislabel
+ * it. The badge is decorative — the whole "…rotation, card N" reading is the
+ * pill's accessible name.
  */
 export function RotationLocationPill({
   location,
@@ -22,26 +25,31 @@ export function RotationLocationPill({
   location: RotationLocation;
 }) {
   return (
-    <Chip
-      variant="soft"
-      color="primary"
-      size="sm"
-      title={location.title}
-      sx={{
-        border: "1px solid",
-        borderColor: "primary.outlinedBorder",
-        fontWeight: "xl",
-        whiteSpace: "nowrap",
-        cursor: "default",
-      }}
-    >
-      {location.cardNumber != null ? (
-        <>
-          {location.bin} <RotationCardBadge number={location.cardNumber} bin={location.bin} />
-        </>
-      ) : (
-        location.bin
-      )}
-    </Chip>
+    <Tooltip variant="outlined" size="sm" title={location.title} enterDelay={400}>
+      <Chip
+        variant="soft"
+        size="sm"
+        // Focusable so the tooltip carrying the card's name opens from the
+        // keyboard too; the title is also the accessible name, since the
+        // card badge inside is decorative.
+        tabIndex={0}
+        aria-label={location.title}
+        sx={{
+          ...rotationBinSx(location.bin, "soft"),
+          "&:hover": {},
+          fontWeight: "xl",
+          whiteSpace: "nowrap",
+          cursor: "default",
+        }}
+      >
+        {location.cardNumber != null ? (
+          <>
+            {location.bin} <RotationCardBadge number={location.cardNumber} bin={location.bin} />
+          </>
+        ) : (
+          location.bin
+        )}
+      </Chip>
+    </Tooltip>
   );
 }

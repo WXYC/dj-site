@@ -1,31 +1,10 @@
-import type { Rotation } from "@/lib/features/rotation/types";
-import type {
-  RotationBinTokens,
-  ThemeSchemeInput,
-} from "@/lib/features/experiences/modern/themes/types";
+import type { RotationBinColors } from "@/lib/features/experiences/modern/tokens/roles";
 
 /**
- * Rotation bin colors.
- *
- * The bin ordering and display labels are the domain vocabulary and live in
- * `lib/features/rotation/types`; import them from there. This module owns only
- * the mapping from a bin to its theme colors, which sit in the theme's
- * `rotation` palette slot
- * (`theme.vars.palette.rotation.{heavy,medium,light,singles}.*`, see
- * lib/features/experiences/modern/themes) so they retheme with the color
- * system.
+ * Selection-state surfaces for bin pickers. A bin's colors themselves come
+ * only from `rotationBinColors` in the role tier; this maps them onto a
+ * picker's rest/selected/hover states.
  */
-
-/** Bin letter -> the theme's `rotation` palette slot. */
-export const ROTATION_BIN_PALETTE_SLOT: Record<
-  Rotation,
-  keyof ThemeSchemeInput["rotation"]
-> = {
-  H: "heavy",
-  M: "medium",
-  L: "light",
-  S: "singles",
-};
 
 export interface RotationBinSurfaceStyle {
   backgroundColor: string;
@@ -41,7 +20,7 @@ export interface RotationBinSurfaceStyle {
  * MUI/component dependency.
  */
 export function rotationBinSurfaceStyle(
-  tokens: RotationBinTokens,
+  tokens: RotationBinColors,
   isSelected: boolean
 ): RotationBinSurfaceStyle {
   return {
