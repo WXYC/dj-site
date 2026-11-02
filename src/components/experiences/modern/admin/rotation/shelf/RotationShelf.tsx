@@ -416,7 +416,9 @@ export default function RotationShelf({ now: nowProp }: { now?: Date } = {}): JS
     });
 
   return (
-    <Stack spacing={1.5}>
+    // Fills the page below the header; the table scrolls inside its sheet, so
+    // the toolbar stays put and the bin strips stick under the column header.
+    <Stack spacing={1.5} sx={{ flex: 1, minHeight: 0 }}>
       <StatusRegion message={statusMessage} />
 
       <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
@@ -515,7 +517,7 @@ export default function RotationShelf({ now: nowProp }: { now?: Date } = {}): JS
         </ToggleButtonGroup>
       </Stack>
 
-      <Sheet variant="outlined" sx={{ borderRadius: "md" }}>
+      <Sheet variant="outlined" sx={{ borderRadius: "md", flex: 1, minHeight: 0, overflow: "auto" }}>
         <Table
           stickyHeader
           hoverRow
@@ -586,19 +588,19 @@ export default function RotationShelf({ now: nowProp }: { now?: Date } = {}): JS
             )}
           </Stack>
         )}
-      </Sheet>
+        {shownStatus === "killed" && shelf.killed.length > killedRenderCap && (
+          <Button
+            variant="outlined"
+            color="neutral"
+            size="sm"
+            sx={{ display: "flex", mx: "auto", my: 1.5 }}
+            onClick={() => setKilledRenderCap((cap) => cap + KILLED_RENDER_BATCH)}
+          >
+            Show {Math.min(KILLED_RENDER_BATCH, shelf.killed.length - killedRenderCap)} more
+          </Button>
+        )}
 
-      {shownStatus === "killed" && shelf.killed.length > killedRenderCap && (
-        <Button
-          variant="outlined"
-          color="neutral"
-          size="sm"
-          sx={{ alignSelf: "center" }}
-          onClick={() => setKilledRenderCap((cap) => cap + KILLED_RENDER_BATCH)}
-        >
-          Show {Math.min(KILLED_RENDER_BATCH, shelf.killed.length - killedRenderCap)} more
-        </Button>
-      )}
+      </Sheet>
 
       {view === "cards" && cardsQuery.isError && cards == null && (
         <ReadRetryAlert message="Could not load the rotation cards." onRetry={() => void cardsQuery.refetch()} />

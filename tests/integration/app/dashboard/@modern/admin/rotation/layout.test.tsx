@@ -37,12 +37,6 @@ vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
   getAppOrganizationId: () => mockGetAppOrganizationId(),
 }));
 
-// Under test is the layout's own gate, not the tab strip's rendering — that
-// has its own component tests.
-vi.mock("@/src/components/experiences/modern/admin/rotation/RotationTabs", () => ({
-  default: () => <div data-testid="rotation-tabs" />,
-}));
-
 import RotationAdminLayout from "@/app/dashboard/@modern/admin/rotation/layout";
 
 function sessionData(role: string | null) {
@@ -84,39 +78,18 @@ describe("rotation admin layout", () => {
     process.env = originalEnv;
   });
 
-  it("renders the tab strip and children for a music director", async () => {
+  it("renders its children for a music director", async () => {
     mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
     mockGetUserRoleInOrganization.mockResolvedValue("musicDirector");
 
     const result = await RotationAdminLayout({ children: <div data-testid="child-page" /> });
     renderWithProviders(result);
 
-    expect(screen.getByTestId("rotation-tabs")).toBeInTheDocument();
     expect(screen.getByTestId("child-page")).toBeInTheDocument();
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
-  it("scrolls the page content and leaves the tab strip pinned", async () => {
-    mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
-    mockGetUserRoleInOrganization.mockResolvedValue("musicDirector");
-
-    const result = await RotationAdminLayout({ children: <div data-testid="child-page" /> });
-    renderWithProviders(result);
-
-    // `Main` is a fixed 100dvh box with overflow:hidden, so a route that owns
-    // no scroll container has everything past the fold clipped away rather
-    // than scrolled to. A rotation page can outgrow the viewport, so the
-    // scroll belongs to this shared wrapper: `flex` + `minHeight` shrink it to
-    // the space left beside the tab strip, `overflow` scrolls the rest, and
-    // the strip itself stays put outside it.
-    expect(screen.getByTestId("child-page").parentElement).toHaveStyle({
-      flex: "1",
-      minHeight: "0px",
-      overflow: "auto",
-    });
-  });
-
-  it("redirects a DJ before the tab strip can render", async () => {
+  it("redirects a DJ before anything can render", async () => {
     mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
     mockGetUserRoleInOrganization.mockResolvedValue("dj");
 
