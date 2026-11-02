@@ -21,6 +21,7 @@ import {
 import type { RotationCard } from "@wxyc/shared";
 import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
 import { rotationBinSx } from "@/lib/features/experiences/modern/tokens/roles";
+import { useMenuFocus } from "@/src/hooks/useMenuFocus";
 import { cardText } from "./shelfText";
 
 export type ShelfMenuAnchor = { kind: "point"; top: number; left: number } | { kind: "element"; el: HTMLElement };
@@ -81,6 +82,7 @@ export default function ShelfRowMenu({
     action();
   };
   const showMove = !killed;
+  const listRef = useMenuFocus<HTMLUListElement>(anchor.kind === "element" ? anchor.el : null);
 
   // Joy's MenuList stamps first/last-child props onto its direct children, so
   // every item is built into one flat array: a Fragment cannot take them.
@@ -179,8 +181,8 @@ export default function ShelfRowMenu({
           variant="outlined"
           size="sm"
           role="menu"
+          ref={listRef}
           aria-label={`Actions for ${name}`}
-          autoFocus
           onKeyDown={(event) => {
             if (event.key === "Escape" || event.key === "Tab") onClose();
           }}
