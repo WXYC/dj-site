@@ -16,6 +16,7 @@ import type {
 } from "@/lib/features/rotation/moveRowsOntoCard";
 import { ROTATION_BIN_LABELS, type RotationListRow } from "@/lib/features/rotation/types";
 import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
+import StatusRegion from "@/src/components/experiences/modern/StatusRegion";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
 import ReadRetryAlert from "@/src/components/experiences/modern/admin/ReadRetryAlert";
 import { Button, Checkbox, Input, LinearProgress, Stack, Typography } from "@mui/joy";
@@ -168,6 +169,7 @@ export default function CardAssignmentPanel({
   const { running, progress, results, save, retry } = useCardAssignmentSave(card.id);
   const [tickedRowIds, setTickedRowIds] = useState<ReadonlySet<number>>(() => new Set());
   const [search, setSearch] = useState("");
+  const [discardOpen, setDiscardOpen] = useState(false);
 
   const locked = running || isFetching || isError;
   const binRows = (data ?? []).filter((row) => row.rotation_bin === card.bin);
@@ -239,9 +241,10 @@ export default function CardAssignmentPanel({
       onClose();
       return;
     }
-    const count = moveIds.length;
-    if (confirm(`Discard ${count} unsaved move${count === 1 ? "" : "s"}?`)) onClose();
+    setDiscardOpen(true);
   };
+  const discardCount = moveIds.length;
+  const discardLabel = `${discardCount} move${discardCount === 1 ? "" : "s"}`;
 
   return (
     <ConfirmDialog
@@ -257,7 +260,12 @@ export default function CardAssignmentPanel({
           <Button variant="plain" color="neutral" disabled={running} onClick={requestClose}>
             Close
           </Button>
-          <Button variant="solid" disabled={locked || moveIds.length === 0} onClick={commit}>
+          <Button
+            color="success"
+            variant={next && !retryOnly && !nothingToSave ? "soft" : "solid"}
+            disabled={locked || moveIds.length === 0}
+            onClick={commit}
+          >
             {retryOnly
               ? `Retry ${moveIds.length}`
               : moveIds.length > 0
@@ -265,12 +273,12 @@ export default function CardAssignmentPanel({
                 : "Save"}
           </Button>
           {next && nothingToSave && (
-            <Button variant="solid" disabled={running} onClick={next.open}>
+            <Button variant="solid" color="neutral" disabled={running} onClick={next.open}>
               Open {nextCardLabel} <span aria-hidden="true">→</span>
             </Button>
           )}
           {next && !retryOnly && !nothingToSave && (
-            <Button variant="solid" disabled={locked} onClick={commitAndAdvance}>
+            <Button variant="solid" color="success" disabled={locked} onClick={commitAndAdvance}>
               Save & open {nextCardLabel}
               {hiddenSuffix} <span aria-hidden="true">→</span>
             </Button>
@@ -283,9 +291,16 @@ export default function CardAssignmentPanel({
         here.
       </Typography>
       {running && (
-        <Typography level="body-sm" role="status" sx={{ mb: 1 }}>
-          Moving {progress.done} of {progress.total} to {cardLabel}…
-        </Typography>
+        <>
+          <LinearProgress
+            determinate
+            color="success"
+            value={progress.total > 0 ? (progress.done / progress.total) * 100 : 0}
+            aria-label={`Moving ${progress.done} of ${progress.total} to ${cardLabel}`}
+            sx={{ mb: 1.5 }}
+          />
+          <StatusRegion message={`Moving ${progress.done} of ${progress.total} to ${cardLabel}`} />
+        </>
       )}
       {isError && (
         <ReadRetryAlert
@@ -354,6 +369,31 @@ export default function CardAssignmentPanel({
           </Stack>
         </>
       )}
+      <ConfirmDialog
+        open={discardOpen}
+        onClose={() => setDiscardOpen(false)}
+        title={`Discard ${discardLabel}?`}
+        actions={
+          <>
+            <Button variant="plain" color="neutral" autoFocus onClick={() => setDiscardOpen(false)}>
+              Keep ticking
+            </Button>
+            <Button
+              color="warning"
+              onClick={() => {
+                setDiscardOpen(false);
+                onClose();
+              }}
+            >
+              Discard {discardLabel}
+            </Button>
+          </>
+        }
+      >
+        <Typography level="body-sm">
+          The ticked records stay on the cards they are on now.
+        </Typography>
+      </ConfirmDialog>
     </ConfirmDialog>
   );
 }

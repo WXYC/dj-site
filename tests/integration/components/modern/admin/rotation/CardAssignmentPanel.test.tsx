@@ -679,56 +679,55 @@ describe("CardAssignmentPanel", () => {
   });
 
   describe("discard confirmation", () => {
+    const discardDialog = () => screen.queryByRole("alertdialog", { name: /^Discard/ });
+
     it("asks before closing via the Close button, and leaves the panel open when declined", async () => {
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
       const { user, onClose } = await renderPanel();
       await tick(user, [901]);
 
       await user.click(button("Close"));
 
-      expect(confirmSpy).toHaveBeenCalled();
+      expect(await screen.findByRole("alertdialog", { name: "Discard 1 move?" })).toBeInTheDocument();
+      // Keeping the ticks is the safe answer, so it holds the focus.
+      expect(button("Keep ticking")).toHaveFocus();
+      await user.click(button("Keep ticking"));
+      await waitFor(() => expect(discardDialog()).not.toBeInTheDocument());
       expect(onClose).not.toHaveBeenCalled();
-      confirmSpy.mockRestore();
     });
 
-    it("closes once the confirmation is accepted", async () => {
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    it("closes once the discard is confirmed", async () => {
       const { user, onClose } = await renderPanel();
       await tick(user, [901]);
 
       await user.click(button("Close"));
+      await user.click(await screen.findByRole("button", { name: "Discard 1 move" }));
 
       expect(onClose).toHaveBeenCalledTimes(1);
-      confirmSpy.mockRestore();
     });
 
     it("closes without asking when nothing is ticked", async () => {
-      const confirmSpy = vi.spyOn(window, "confirm");
       const { user, onClose } = await renderPanel();
 
       await user.click(button("Close"));
 
-      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(discardDialog()).not.toBeInTheDocument();
       expect(onClose).toHaveBeenCalledTimes(1);
-      confirmSpy.mockRestore();
     });
 
     it("asks alike on Escape and on a backdrop click", async () => {
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
       const { user, onClose } = await renderPanel();
       await tick(user, [901]);
 
       await user.keyboard("{Escape}");
-      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      await user.click(await screen.findByRole("button", { name: "Discard 1 move" }));
       expect(onClose).toHaveBeenCalledTimes(1);
 
-      confirmSpy.mockReturnValue(false);
       await tick(user, [902]);
       await user.click(backdrop());
-      expect(confirmSpy).toHaveBeenCalledTimes(2);
+      expect(await screen.findByRole("alertdialog", { name: /^Discard/ })).toBeInTheDocument();
+      await user.click(button("Keep ticking"));
       // Declined, so the second close never went through.
       expect(onClose).toHaveBeenCalledTimes(1);
-      confirmSpy.mockRestore();
     });
 
     it("does not ask to discard a tick on a record the next list read omits", async () => {
@@ -750,12 +749,10 @@ describe("CardAssignmentPanel", () => {
       });
       await waitFor(() => expect(screen.queryByText(title(901))).not.toBeInTheDocument());
 
-      const confirmSpy = vi.spyOn(window, "confirm");
       await user.click(button("Close"));
 
-      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(screen.queryByRole("alertdialog", { name: /^Discard/ })).not.toBeInTheDocument();
       expect(onClose).toHaveBeenCalledTimes(1);
-      confirmSpy.mockRestore();
     });
   });
 
