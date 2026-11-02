@@ -2,16 +2,16 @@ import { requireAuth, requireRole } from "@/lib/features/authentication/server-u
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { Authorization } from "@/lib/features/admin/types";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
-import RotationAdminList from "@/src/components/experiences/modern/admin/rotation/RotationAdminList";
+import RotationShelf from "@/src/components/experiences/modern/admin/rotation/shelf/RotationShelf";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPageTitle } from "@/lib/utils/page-title";
 
 export const metadata: Metadata = {
-  title: getPageTitle("Rotation List"),
+  title: getPageTitle("Rotation Shelf"),
 };
 
-export default async function RotationListPage() {
+export default async function RotationShelfPage() {
   if (!isRotationAdminEnabled()) {
     notFound();
   }
@@ -21,8 +21,8 @@ export default async function RotationListPage() {
 
   return (
     <>
-      <PageHeader title="Rotation List" />
-      <RotationAdminList />
+      <PageHeader title="Rotation Shelf" />
+      <RotationShelf />
     </>
   );
 }
