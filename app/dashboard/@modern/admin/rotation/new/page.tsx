@@ -4,6 +4,8 @@ import { reviewGateCutoverReached } from "@/lib/features/reviews/reviewGate";
 import ReviewGateRefusal from "@/src/components/shared/ReviewGateRefusal";
 import { Authorization } from "@/lib/features/admin/types";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
+import ScrollRegion from "@/src/components/experiences/modern/ScrollRegion";
+import BackToShelfButton from "@/src/components/experiences/modern/admin/rotation/shelf/BackToShelfButton";
 import RotationFilingBench from "@/src/components/experiences/modern/admin/rotation/RotationFilingBench";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -23,8 +25,12 @@ export default async function RotationBenchPage() {
 
   return (
     <>
-      <PageHeader title="Add to Rotation" />
-      {reviewGateCutoverReached() ? <ReviewGateRefusal modern /> : <RotationFilingBench />}
+      <PageHeader title="Add to Rotation">
+        <BackToShelfButton />
+      </PageHeader>
+      <ScrollRegion>
+        {reviewGateCutoverReached() ? <ReviewGateRefusal modern /> : <RotationFilingBench />}
+      </ScrollRegion>
     </>
   );
 }

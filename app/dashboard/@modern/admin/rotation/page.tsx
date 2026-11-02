@@ -2,6 +2,7 @@ import { requireAuth, requireRole } from "@/lib/features/authentication/server-u
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { Authorization } from "@/lib/features/admin/types";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
+import AddToRotationButton from "@/src/components/experiences/modern/admin/rotation/shelf/AddToRotationButton";
 import RotationShelf from "@/src/components/experiences/modern/admin/rotation/shelf/RotationShelf";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -21,7 +22,9 @@ export default async function RotationShelfPage() {
 
   return (
     <>
-      <PageHeader title="Rotation Shelf" />
+      <PageHeader title="Rotation Shelf">
+        <AddToRotationButton />
+      </PageHeader>
       <RotationShelf />
     </>
   );

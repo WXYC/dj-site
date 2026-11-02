@@ -3,17 +3,12 @@ import { requireAuth, requireRole } from "@/lib/features/authentication/server-u
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { Authorization } from "@/lib/features/admin/types";
 import { notFound } from "next/navigation";
-import RotationTabs from "@/src/components/experiences/modern/admin/rotation/RotationTabs";
-import ScrollRegion from "@/src/components/experiences/modern/ScrollRegion";
 
 // The pages remain the authority on access: every rotation page repeats the
-// flag + MD checks. The layout must still run both itself, for two reasons
-// that cut in opposite directions. A layout flushes to the stream before any
-// page gate resolves, so an ungated tab strip would disclose the
-// dark-launched surface's names and URLs to every requester (DJ, anonymous,
-// flag-off) ahead of the page's redirect. And a layout does NOT re-run on
-// soft navigation between its child routes, so this check alone could never
-// replace the per-page gates.
+// flag + MD checks, because a layout does NOT re-run on soft navigation
+// between its child routes. The layout runs both itself as well, so nothing
+// it renders now or later can stream ahead of a page's gate to a requester
+// (DJ, anonymous, flag-off) who will be turned away.
 export default async function RotationAdminLayout({
   children,
 }: {
@@ -26,10 +21,5 @@ export default async function RotationAdminLayout({
   const session = await requireAuth();
   await requireRole(session, Authorization.MD);
 
-  return (
-    <>
-      <RotationTabs />
-      <ScrollRegion>{children}</ScrollRegion>
-    </>
-  );
+  return <>{children}</>;
 }
