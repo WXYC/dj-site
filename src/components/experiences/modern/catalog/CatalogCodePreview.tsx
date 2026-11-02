@@ -4,7 +4,7 @@ import type { Rotation } from "@/lib/features/rotation/types";
 import {
   formatTone,
   genreTone,
-  ROTATION_TONES,
+  rotationBinSx,
 } from "@/lib/features/experiences/modern/tokens/roles";
 import { compilationSectionLetter, isVariousArtists } from "@/lib/features/catalog/libraryCode";
 import { Avatar, Badge, Stack, Typography } from "@mui/joy";
@@ -116,17 +116,13 @@ export default function CatalogCodePreview({
     <Badge
       badgeContent={rotationBadge}
       size="sm"
-      color={
-        rotation
-          ? ROTATION_TONES[rotation]?.color
-          : rotationUnknown
-            ? "neutral"
-            : undefined
-      }
+      color={!rotation && rotationUnknown ? "neutral" : undefined}
       slotProps={
-        rotationBadge === "?"
-          ? { badge: { title: "Rotation status unknown" } }
-          : undefined
+        rotation
+          ? { badge: { sx: rotationBinSx(rotation, "solid") } }
+          : rotationBadge === "?"
+            ? { badge: { title: "Rotation status unknown" } }
+            : undefined
       }
     >
       <Avatar

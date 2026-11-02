@@ -4,7 +4,7 @@ import type { SxProps } from "@mui/joy/styles/types";
 import {
   formatTone,
   genreTone,
-  ROTATION_TONES,
+  rotationBinSx,
   type FormatTone,
 } from "@/lib/features/experiences/modern/tokens/roles";
 import type { Rotation } from "@/lib/features/rotation/types";
@@ -52,10 +52,7 @@ export function getTagFilterChipProps(tagId: string): CatalogFilterTagChipProps 
     return { color: "neutral", variant: "outlined" };
   }
   if (isCatalogRotationTag(tagId)) {
-    return {
-      color: ROTATION_TONES[tagId as Rotation]?.color ?? "neutral",
-      variant: "soft",
-    };
+    return { variant: "soft", sx: rotationBinSx(tagId as Rotation, "soft") };
   }
   return { color: "neutral", variant: "soft" };
 }

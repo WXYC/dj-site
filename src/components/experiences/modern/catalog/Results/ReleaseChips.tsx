@@ -8,7 +8,7 @@ import {
   formatLabel,
   formatTone,
   genreTone,
-  ROTATION_TONES,
+  rotationBinSx,
 } from "@/lib/features/experiences/modern/tokens/roles";
 import { EXCLUSIVES_PURPLE } from "../Search/catalogFilterStyles";
 
@@ -59,9 +59,8 @@ export function ReleaseChips({
       {rotation && (
         <Chip
           variant="solid"
-          color={ROTATION_TONES[rotation]?.color ?? "neutral"}
           size="sm"
-          sx={chipSx}
+          sx={{ ...chipSx, ...rotationBinSx(rotation, "solid") }}
           aria-label={`Rotation ${rotation}`}
         >
           {rotation}

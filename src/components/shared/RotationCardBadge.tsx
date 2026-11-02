@@ -1,9 +1,8 @@
 "use client";
 
 import Box from "@mui/joy/Box";
-import { useTheme } from "@mui/joy/styles";
 import type { Rotation } from "@/lib/features/rotation/types";
-import { ROTATION_BIN_PALETTE_SLOT } from "@/src/utilities/modern/rotationBinColors";
+import { rotationBinColors } from "@/lib/features/experiences/modern/tokens/roles";
 
 /**
  * A rotation card number in a small circular badge — the visual half of a card
@@ -29,7 +28,7 @@ import { ROTATION_BIN_PALETTE_SLOT } from "@/src/utilities/modern/rotationBinCol
  * the end of a line gets no stray trailing space.
  */
 export function RotationCardBadge({ number, bin }: { number: number; bin: Rotation }) {
-  const tokens = useTheme().vars.palette.rotation[ROTATION_BIN_PALETTE_SLOT[bin]];
+  const tokens = rotationBinColors(bin);
   return (
     <Box
       component="span"

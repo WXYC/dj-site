@@ -53,15 +53,15 @@ const ROSE_ONAIR: OnAirTokens = { indicator: "#ef4444", glow: "rgba(239, 68, 68,
 const ROSE_DARK_BG: BackgroundTokens = { body: "#120f0b", surface: "#201914", popup: "#2b221c", border: "#392d26" };
 
 const ROSE_ROT_LIGHT = {
-  heavy: rot("#fce4ec", "#f8bbd0", "#e53935", "#b71c1c", "#ffffff", "#ef9a9a"),
-  medium: rot("#fff9c4", "#fff176", "#f9a825", "#f57f17", "#ffffff", "#fdd835"),
-  light: rot("#e0f2f1", "#b2dfdb", "#00897b", "#004d40", "#ffffff", "#80cbc4"),
+  heavy: rot("#fce4ec", "#f8bbd0", "#da3632", "#b71c1c", "#ffffff", "#ef9a9a"),
+  medium: rot("#fff9c4", "#fff176", "#f9a825", "#ac5910", "#61420e", "#fdd835"),
+  light: rot("#e0f2f1", "#b2dfdb", "#008476", "#004d40", "#ffffff", "#80cbc4"),
   singles: rot("#e8eaf6", "#c5cae9", "#5c6bc0", "#283593", "#ffffff", "#9fa8da"),
 };
 const ROSE_ROT_DARK = {
-  heavy: rot("#4a1a1a", "#5c2020", "#e53935", "#ef9a9a", "#ffffff", "#7f3333"),
-  medium: rot("#4a3a0a", "#5c4810", "#f9a825", "#fdd835", "#ffffff", "#7f6820"),
-  light: rot("#1a3a36", "#204a44", "#00897b", "#80cbc4", "#ffffff", "#336a60"),
+  heavy: rot("#4a1a1a", "#5c2020", "#da3632", "#ef9a9a", "#ffffff", "#7f3333"),
+  medium: rot("#4a3a0a", "#5c4810", "#f9a825", "#fdd835", "#61420e", "#7f6820"),
+  light: rot("#1a3a36", "#204a44", "#008476", "#80cbc4", "#ffffff", "#336a60"),
   singles: rot("#262a4a", "#30365c", "#5c6bc0", "#9fa8da", "#ffffff", "#4a5090"),
 };
 
@@ -120,14 +120,14 @@ const OCEAN_DARK_BG: BackgroundTokens = { body: "#111821", surface: "#1a2430", p
 
 const OCEAN_ROT_LIGHT = {
   heavy: rot("#e0e7ff", "#c7d2fe", "#4f46e5", "#312e81", "#ffffff", "#a5b4fc"),
-  medium: rot("#ccfbf1", "#99f6e4", "#0d9488", "#134e4a", "#ffffff", "#5eead4"),
-  light: rot("#cffafe", "#a5f3fc", "#0891b2", "#164e63", "#ffffff", "#67e8f9"),
+  medium: rot("#ccfbf1", "#99f6e4", "#0b8278", "#134e4a", "#ffffff", "#5eead4"),
+  light: rot("#cffafe", "#a5f3fc", "#077e9b", "#164e63", "#ffffff", "#67e8f9"),
   singles: rot("#f1f5f9", "#e2e8f0", "#475569", "#0f172a", "#ffffff", "#cbd5e1"),
 };
 const OCEAN_ROT_DARK = {
-  heavy: rot("#1e1b4b", "#312e81", "#6366f1", "#c7d2fe", "#ffffff", "#4338ca"),
-  medium: rot("#0f2e2b", "#115e59", "#14b8a6", "#99f6e4", "#ffffff", "#0f766e"),
-  light: rot("#0a2e38", "#155e75", "#06b6d4", "#a5f3fc", "#ffffff", "#0e7490"),
+  heavy: rot("#1e1b4b", "#312e81", "#6164ec", "#c7d2fe", "#ffffff", "#4338ca"),
+  medium: rot("#0f2e2b", "#115e59", "#14b8a6", "#99f6e4", "#07403a", "#0f766e"),
+  light: rot("#0a2e38", "#155e75", "#06b6d4", "#a5f3fc", "#02404a", "#0e7490"),
   singles: rot("#1e293b", "#334155", "#64748b", "#cbd5e1", "#ffffff", "#475569"),
 };
 
@@ -196,15 +196,15 @@ const PAPER_DARK_BG: BackgroundTokens = { body: "#211a12", surface: "#2c2318", p
 
 const PAPER_ROT_LIGHT = {
   heavy: rot("#f5ddd5", "#ecc3b5", "#b23a20", "#5e1c10", "#ffffff", "#dfa898"),
-  medium: rot("#f7eccf", "#efdca6", "#b5851f", "#5e4410", "#ffffff", "#e0c98a"),
+  medium: rot("#f7eccf", "#efdca6", "#966e1a", "#5e4410", "#ffffff", "#e0c98a"),
   light: rot("#e2ecd8", "#cbddba", "#4a7233", "#243818", "#ffffff", "#b3c99f"),
   singles: rot("#e4ddce", "#d3c8b2", "#7d6e58", "#3a3226", "#ffffff", "#c2b49a"),
 };
 const PAPER_ROT_DARK = {
-  heavy: rot("#3f1a10", "#521f12", "#cc4f34", "#e79c88", "#ffffff", "#6e2c1a"),
-  medium: rot("#3d300f", "#4e3e12", "#c99a2e", "#e4c87d", "#ffffff", "#6b551a"),
-  light: rot("#1f2e14", "#2b3d1a", "#648a4b", "#a9c199", "#ffffff", "#3d5228"),
-  singles: rot("#332c1e", "#443a28", "#9c8b73", "#d2c8b9", "#ffffff", "#5a4e3a"),
+  heavy: rot("#3f1a10", "#521f12", "#c64d32", "#e79c88", "#ffffff", "#6e2c1a"),
+  medium: rot("#3d300f", "#4e3e12", "#c99a2e", "#e4c87d", "#443410", "#6b551a"),
+  light: rot("#1f2e14", "#2b3d1a", "#5b7e44", "#a9c199", "#ffffff", "#3d5228"),
+  singles: rot("#332c1e", "#443a28", "#81735f", "#d2c8b9", "#ffffff", "#5a4e3a"),
 };
 
 export const shellacTheme: ThemeDefinition = {
@@ -265,15 +265,15 @@ const DEAD_DARK_BG: BackgroundTokens = { body: "#0c0a0b", surface: "#171314", po
 
 const DEAD_ROT_LIGHT = {
   heavy: rot("#fde8e8", "#f8c9c9", "#c1121f", "#7a0c14", "#ffffff", "#eaa5a5"),
-  medium: rot("#f6efe0", "#ecdcbb", "#a9822b", "#5e4715", "#ffffff", "#dcc79a"),
+  medium: rot("#f6efe0", "#ecdcbb", "#917025", "#5e4715", "#ffffff", "#dcc79a"),
   light: rot("#e7ecef", "#cdd8de", "#4f7180", "#2f4350", "#ffffff", "#a9bcc6"),
   singles: rot("#ececed", "#dcdcde", "#6b6b72", "#33333a", "#ffffff", "#c3c3c8"),
 };
 const DEAD_ROT_DARK = {
   heavy: rot("#3a0d0d", "#4d1212", "#e02424", "#f0a5a5", "#ffffff", "#661717"),
-  medium: rot("#332a12", "#463916", "#c99a2e", "#e4c87d", "#ffffff", "#6b551a"),
-  light: rot("#182228", "#213038", "#5a90a8", "#a9ccdb", "#ffffff", "#31485a"),
-  singles: rot("#26262a", "#34343a", "#8a8a92", "#d2d2d8", "#ffffff", "#4a4a52"),
+  medium: rot("#332a12", "#463916", "#c99a2e", "#e4c87d", "#443410", "#6b551a"),
+  light: rot("#182228", "#213038", "#4c7a8f", "#a9ccdb", "#ffffff", "#31485a"),
+  singles: rot("#26262a", "#34343a", "#74747b", "#d2d2d8", "#ffffff", "#4a4a52"),
 };
 
 export const deadstockTheme: ThemeDefinition = {

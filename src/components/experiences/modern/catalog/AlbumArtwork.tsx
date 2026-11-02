@@ -83,13 +83,44 @@ export function AlbumArtwork({ album, size }: AlbumArtworkProps): JSX.Element {
   if (album.discogsUnavailable === true) {
     return <NotOnDiscogsBadge size={size} note={album.discogsUnavailableNote} />;
   }
+  return (
+    <RecordArtwork
+      artworkUrl={album.artwork_url}
+      genre={album.artist.genre}
+      lettercode={album.artist.lettercode}
+      alt={`${album.artist.name} - ${album.title}`}
+      size={size}
+    />
+  );
+}
 
-  if (album.artwork_url) {
+interface RecordArtworkProps {
+  artworkUrl?: string | null;
+  genre?: string | null;
+  lettercode?: string | null;
+  alt: string;
+  size: ArtworkSize;
+}
+
+/**
+ * A record's cover, or — with no cover — the genre-gradient lettercode
+ * placeholder. The placeholder carries information (genre hue, artist code),
+ * so a row is never blank. Takes plain fields so surfaces that hold a
+ * rotation row rather than a full catalog entry can render it too.
+ */
+export function RecordArtwork({
+  artworkUrl,
+  genre,
+  lettercode,
+  alt,
+  size,
+}: RecordArtworkProps): JSX.Element {
+  if (artworkUrl) {
     return (
       <Box
         component="img"
-        src={album.artwork_url}
-        alt={`${album.artist.name} - ${album.title}`}
+        src={artworkUrl}
+        alt={alt}
         sx={{
           width: size,
           height: size,
@@ -101,7 +132,7 @@ export function AlbumArtwork({ album, size }: AlbumArtworkProps): JSX.Element {
     );
   }
 
-  const genreColor = genreTone(album.artist.genre).color;
+  const genreColor = genreTone(genre).color;
 
   return (
     <Box
@@ -127,7 +158,7 @@ export function AlbumArtwork({ album, size }: AlbumArtworkProps): JSX.Element {
           letterSpacing: "0.08em",
         }}
       >
-        {album.artist.lettercode}
+        {lettercode}
       </Typography>
     </Box>
   );

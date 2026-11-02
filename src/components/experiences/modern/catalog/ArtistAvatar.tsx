@@ -9,7 +9,7 @@ import { Rotation } from "@/lib/features/rotation/types";
 import {
   formatTone,
   genreTone,
-  ROTATION_TONES,
+  rotationBinSx,
 } from "@/lib/features/experiences/modern/tokens/roles";
 import { Avatar, Badge, Stack, Tooltip, Typography } from "@mui/joy";
 
@@ -62,8 +62,10 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
     >
       <Badge
         badgeContent={props.rotation ?? null}
-        color={props.rotation ? ROTATION_TONES[props.rotation]?.color : undefined}
         size="sm"
+        slotProps={
+          props.rotation ? { badge: { sx: rotationBinSx(props.rotation, "solid") } } : undefined
+        }
       >
         <Avatar
           variant={variant_choice}

@@ -138,12 +138,62 @@ export function formatLabel(format: string): string {
   return FORMAT_LABELS.get(format) ?? format;
 }
 
-export const ROTATION_TONES: Record<Rotation, Tone> = {
-  H: { color: "primary", variant: "solid" },
-  M: { color: "warning", variant: "solid" },
-  L: { color: "success", variant: "solid" },
-  S: { color: "neutral", variant: "solid" },
+/** Bin letter -> the theme's `rotation` palette slot. */
+export const ROTATION_BIN_SLOT: Record<Rotation, "heavy" | "medium" | "light" | "singles"> = {
+  H: "heavy",
+  M: "medium",
+  L: "light",
+  S: "singles",
 };
+
+export interface RotationBinColors {
+  bg: string;
+  bgHover: string;
+  bgSelected: string;
+  text: string;
+  textSelected: string;
+  border: string;
+}
+
+/**
+ * The one source of a rotation bin's color: the theme's dedicated `rotation`
+ * palette, as CSS variables so callers need no theme object. Every bin-colored
+ * surface (chips, badges, pills, pickers, group headers) reads from here, so a
+ * bin letter and its card badge can never disagree in hue.
+ */
+export function rotationBinColors(bin: Rotation): RotationBinColors {
+  const slot = ROTATION_BIN_SLOT[bin];
+  const token = (name: keyof RotationBinColors) => `var(--wxyc-palette-rotation-${slot}-${name})`;
+  return {
+    bg: token("bg"),
+    bgHover: token("bgHover"),
+    bgSelected: token("bgSelected"),
+    text: token("text"),
+    textSelected: token("textSelected"),
+    border: token("border"),
+  };
+}
+
+/**
+ * `sx` for a bin-colored Joy Chip/Badge. `solid` is operational status (the
+ * record is in this bin); `soft` is descriptive or a choosable target (filters,
+ * move targets). Interactive chips get the matching hover fill.
+ */
+export function rotationBinSx(bin: Rotation, emphasis: "solid" | "soft") {
+  const c = rotationBinColors(bin);
+  return emphasis === "solid"
+    ? {
+        backgroundColor: c.bgSelected,
+        color: c.textSelected,
+        "&:hover": { backgroundColor: c.bgSelected },
+      }
+    : {
+        backgroundColor: c.bg,
+        color: c.text,
+        boxShadow: `inset 0 0 0 1px ${c.border}`,
+        "&:hover": { backgroundColor: c.bgHover },
+      };
+}
 
 // Caption-scale status pills, matching the catalog table's chip language.
 export const STATUS_CHIP_SX = {
