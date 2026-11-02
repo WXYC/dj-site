@@ -16,7 +16,19 @@ export function useMenuFocus<T extends HTMLElement>(returnTo: HTMLElement | null
   const ref = useCallback((node: T | null) => {
     if (node == null) return;
     listNode.current = node;
-    node.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])')?.focus();
+    // Deferred a frame: the list's own roving focus settles on its first item
+    // as it mounts, which may be a disabled one. With every item disabled the
+    // list itself takes focus, so Escape still reaches it.
+    requestAnimationFrame(() => {
+      if (!node.isConnected) return;
+      const item = node.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])');
+      if (item) {
+        item.focus();
+      } else {
+        node.tabIndex = -1;
+        node.focus();
+      }
+    });
   }, []);
 
   useEffect(

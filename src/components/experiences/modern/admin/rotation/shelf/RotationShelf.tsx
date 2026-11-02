@@ -304,7 +304,7 @@ export default function RotationShelf({ now: nowProp }: { now?: Date } = {}): JS
   const columns = view === "cards" ? CARD_COLUMNS : LIST_COLUMNS;
   const statusMessage = loading
     ? "Loading rotation"
-    : `${shownRows.length} ${shownStatus} record${shownRows.length === 1 ? "" : "s"}`;
+    : `${shownRows.length} ${shownStatus === "killed" ? "retired" : "active"} record${shownRows.length === 1 ? "" : "s"}`;
   const filtersOn = search.trim() !== "" || bin != null || overdueOnly;
 
   const renderList = () => {
@@ -472,6 +472,9 @@ export default function RotationShelf({ now: nowProp }: { now?: Date } = {}): JS
               action: {
                 "aria-pressed": bin === candidate,
                 "aria-label": `${ROTATION_BIN_LABELS[candidate]} (${shelf.binCounts.get(candidate) ?? 0})`,
+                // Joy points the action at the chip's visible "H 13" by
+                // default, and labelledby would out-rank the label above.
+                "aria-labelledby": undefined,
               },
             }}
             sx={{ ...rotationBinSx(candidate, bin === candidate ? "solid" : "soft"), ...tabularNumsSx }}
