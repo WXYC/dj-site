@@ -22,7 +22,9 @@ export default async function CatalogAdminPage() {
           two sections sit side by side, each scrolling inside its own sheet so
           its composer stays put; stacked on narrow screens, this grid scrolls. */}
       <Box
-        sx={(theme) => ({
+        // A plain object, not a theme callback: this is a server component,
+        // and a function can't cross into the client Box. 1200px is Joy's `lg`.
+        sx={{
           flex: 1,
           minHeight: 0,
           display: "grid",
@@ -30,12 +32,12 @@ export default async function CatalogAdminPage() {
           gridTemplateColumns: "minmax(0, 1fr)",
           gridTemplateRows: "auto auto",
           overflow: "auto",
-          [theme.breakpoints.up("lg")]: {
+          "@media (min-width: 1200px)": {
             gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)",
             gridTemplateRows: "minmax(0, 1fr)",
             overflow: "hidden",
           },
-        })}
+        }}
       >
         <GenreAdmin />
         <FormatAdmin />
