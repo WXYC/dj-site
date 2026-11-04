@@ -26,7 +26,7 @@ import { authClient } from "@/lib/features/authentication/client";
 import { fetchOrganizationRoleForUserClient } from "@/lib/features/authentication/organization-utils";
 import Main from "@/src/components/experiences/modern/Main";
 import CatalogAdminPage from "@/app/dashboard/@modern/admin/catalog/page";
-import { nearestScrollableAncestor, scrollsVertically } from "@/tests/helpers/scroll";
+import { nearestScrollableAncestor } from "@/tests/helpers/scroll";
 
 const mockUseSession = authClient.useSession as ReturnType<typeof vi.fn>;
 const mockFetchOrgRole = fetchOrganizationRoleForUserClient as ReturnType<
