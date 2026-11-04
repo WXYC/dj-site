@@ -1,6 +1,7 @@
 "use client";
 
 import Box from "@mui/joy/Box";
+import type { SxProps } from "@mui/joy/styles/types";
 import type { Rotation } from "@/lib/features/rotation/types";
 import { rotationBinColors } from "@/lib/features/experiences/modern/tokens/roles";
 
@@ -27,7 +28,16 @@ import { rotationBinColors } from "@/lib/features/experiences/modern/tokens/role
  * space — survives a flex value container); a caller that places the badge at
  * the end of a line gets no stray trailing space.
  */
-export function RotationCardBadge({ number, bin }: { number: number; bin: Rotation }) {
+export function RotationCardBadge({
+  number,
+  bin,
+  sx,
+}: {
+  number: number;
+  bin: Rotation;
+  /** Placement overrides from a host that sizes the badge to itself (e.g. a pill's knob). */
+  sx?: SxProps;
+}) {
   const tokens = rotationBinColors(bin);
   return (
     <Box
@@ -46,6 +56,7 @@ export function RotationCardBadge({ number, bin }: { number: number; bin: Rotati
         fontWeight: "xl",
         lineHeight: 1,
         verticalAlign: "middle",
+        ...(sx as object),
       }}
     >
       {number}
