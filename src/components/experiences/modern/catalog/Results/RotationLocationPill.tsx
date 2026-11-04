@@ -40,11 +40,29 @@ export function RotationLocationPill({
           fontWeight: "xl",
           whiteSpace: "nowrap",
           cursor: "default",
+          // With a card, the badge rides flush against the pill's right end
+          // like a slider's knob: the pill keeps its left padding only, and
+          // the badge fills its height less a hairline inset.
+          ...(location.cardNumber != null && {
+            "--Chip-paddingInline": "0px",
+            pl: "0.65em",
+            pr: "2px",
+          }),
         }}
       >
         {location.cardNumber != null ? (
           <>
-            {location.bin} <RotationCardBadge number={location.cardNumber} bin={location.bin} />
+            {location.bin}
+            <RotationCardBadge
+              number={location.cardNumber}
+              bin={location.bin}
+              sx={{
+                ml: "0.45em",
+                height: "calc(var(--_Chip-minHeight) - 4px)",
+                minWidth: "calc(var(--_Chip-minHeight) - 4px)",
+                fontSize: "0.75em",
+              }}
+            />
           </>
         ) : (
           location.bin
