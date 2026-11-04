@@ -155,7 +155,7 @@ describe("GenreAdmin", () => {
       await user.type(descriptionInput, "Synth-driven music");
       await user.click(screen.getByRole("button", { name: /Add Genre/i }));
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Failed to add genre"));
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't add the genre. Please try again."));
       expect(toast.error).toHaveBeenCalledTimes(1);
     });
 
@@ -201,7 +201,7 @@ describe("GenreAdmin", () => {
       expect(toast.error).toHaveBeenCalledTimes(1);
     });
 
-    it("shows an error toast and does not submit when the name is whitespace-only", async () => {
+    it("holds the add while the name is whitespace-only, with no toast", async () => {
       const { getReceivedBody } = mockGenres([]);
       const { user } = renderWithProviders(<GenreAdmin />);
 
@@ -209,15 +209,13 @@ describe("GenreAdmin", () => {
       const descriptionInput = screen.getByLabelText(/description/i);
       await user.type(nameInput, "   ");
       await user.type(descriptionInput, "Synth-driven music");
-      await user.click(screen.getByRole("button", { name: /Add Genre/i }));
 
-      await waitFor(() =>
-        expect(toast.error).toHaveBeenCalledWith("Genre name can't be blank"),
-      );
+      expect(screen.getByRole("button", { name: /Add Genre/i })).toBeDisabled();
+      expect(toast.error).not.toHaveBeenCalled();
       expect(getReceivedBody()).toBeUndefined();
     });
 
-    it("shows an error toast and does not submit when the description is whitespace-only", async () => {
+    it("holds the add and asks for a description while it is whitespace-only", async () => {
       const { getReceivedBody } = mockGenres([]);
       const { user } = renderWithProviders(<GenreAdmin />);
 
@@ -225,12 +223,44 @@ describe("GenreAdmin", () => {
       const descriptionInput = screen.getByLabelText(/description/i);
       await user.type(nameInput, "Electronic");
       await user.type(descriptionInput, "   ");
-      await user.click(screen.getByRole("button", { name: /Add Genre/i }));
 
-      await waitFor(() =>
-        expect(toast.error).toHaveBeenCalledWith("Genre description can't be blank"),
-      );
+      expect(screen.getByRole("button", { name: /Add Genre/i })).toBeDisabled();
+      expect(screen.getByText("Add a short description to file it.")).toBeInTheDocument();
+      expect(toast.error).not.toHaveBeenCalled();
       expect(getReceivedBody()).toBeUndefined();
+    });
+
+    it("previews a new genre in its catalog chip and says when it has no designed color", async () => {
+      mockGenres([]);
+      const { user } = renderWithProviders(<GenreAdmin />);
+
+      await user.type(await screen.findByLabelText(/genre name/i), "Shoegaze");
+
+      expect(screen.getByText("Shoegaze")).toBeInTheDocument();
+      expect(screen.getByText("No designed color yet — it shows neutral in the catalog.")).toBeInTheDocument();
+    });
+
+    it("flags a genre that already exists, case-insensitively, and holds the add", async () => {
+      const { getReceivedBody } = mockGenres([{ id: 1, genre_name: "Jazz" }]);
+      const { user } = renderWithProviders(<GenreAdmin />);
+      await screen.findByText("Jazz");
+
+      await user.type(screen.getByLabelText(/genre name/i), "jazz");
+      await user.type(screen.getByLabelText(/description/i), "Improvised music");
+
+      expect(screen.getByText("Jazz already exists.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Add Genre/i })).toBeDisabled();
+      expect(getReceivedBody()).toBeUndefined();
+    });
+
+    it("renders a failed read as a retry, never as an empty list", async () => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/genres`, () => HttpResponse.json({ error: "boom" }, { status: 500 })),
+      );
+      renderWithProviders(<GenreAdmin />);
+
+      expect(await screen.findByText("Could not load the genres.")).toBeInTheDocument();
+      expect(screen.queryByText("No genres yet.")).not.toBeInTheDocument();
     });
   });
 });

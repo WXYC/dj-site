@@ -3,7 +3,7 @@ import { Authorization } from "@/lib/features/admin/types";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import FormatAdmin from "@/src/components/experiences/modern/admin/catalog/FormatAdmin";
 import GenreAdmin from "@/src/components/experiences/modern/admin/catalog/GenreAdmin";
-import { Stack } from "@mui/joy";
+import { Box } from "@mui/joy";
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
 
@@ -18,17 +18,28 @@ export default async function CatalogAdminPage() {
   return (
     <>
       <PageHeader title="Catalog Admin" />
-      {/* Main is a fixed 100dvh box with overflow:hidden, so a page that owns no
-          scroll container has its overflow clipped away rather than scrolled to.
-          `overflow: auto` is what makes this scroll: a scroll container's
-          automatic minimum size is already zero, so minHeight here is belt and
-          braces for consistency with the other scroll panes, not the mechanism.
-          Both lists grow without bound and each card's add form sits below its
-          list, so without a scroll container the forms become unreachable. */}
-      <Stack spacing={2} sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-        <FormatAdmin />
+      {/* Main is a fixed 100dvh box with overflow:hidden. On wide screens the
+          two sections sit side by side, each scrolling inside its own sheet so
+          its composer stays put; stacked on narrow screens, this grid scrolls. */}
+      <Box
+        sx={(theme) => ({
+          flex: 1,
+          minHeight: 0,
+          display: "grid",
+          gap: 2,
+          gridTemplateColumns: "minmax(0, 1fr)",
+          gridTemplateRows: "auto auto",
+          overflow: "auto",
+          [theme.breakpoints.up("lg")]: {
+            gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)",
+            gridTemplateRows: "minmax(0, 1fr)",
+            overflow: "hidden",
+          },
+        })}
+      >
         <GenreAdmin />
-      </Stack>
+        <FormatAdmin />
+      </Box>
     </>
   );
 }
