@@ -60,10 +60,11 @@ describe("catalog admin page", () => {
 
   // The dashboard's Main region is a fixed 100dvh box with overflow:hidden, so
   // a page that supplies no scroll container of its own is not merely missing a
-  // scrollbar — everything past the fold is unreachable. The genre add form sits
-  // below a list that grows without bound, which is exactly what gets clipped.
+  // scrollbar — everything past the fold is unreachable. Both lists grow without
+  // bound, so stacked on a narrow screen the second section is what gets clipped.
   // The assertion is page-level: it walks up from the content to the nearest
-  // scrollable ancestor, which is the page's own Stack. Main is rendered for
+  // scrollable ancestor, which is the page's own grid (wide screens hand the
+  // scroll to each section's table instead, with its add form above it). Main is rendered for
   // fidelity, not because the assertion reads anything off it — this stays green
   // against a stubbed Main, so it does not pin Main's own layout.
   it("scrolls its own content, since Main clips at viewport height", async () => {

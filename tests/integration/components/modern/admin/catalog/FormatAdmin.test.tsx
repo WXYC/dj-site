@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import FormatAdmin from "@/src/components/experiences/modern/admin/catalog/FormatAdmin";
@@ -103,21 +103,65 @@ describe("FormatAdmin", () => {
       mockFormats([{ id: 1, format_name: "Vinyl" }, { id: 2, format_name: "CD" }]);
       renderWithProviders(<FormatAdmin />);
 
-      expect(await screen.findByText("Vinyl")).toBeInTheDocument();
-      expect(screen.getByText("CD")).toBeInTheDocument();
+      const table = await screen.findByRole("table", { name: "Formats" });
+      // Each row shows the format as the catalog draws it and as it is stored.
+      expect(await within(table).findAllByText("Vinyl")).toHaveLength(2);
+      expect(within(table).getAllByText("CD")).toHaveLength(2);
+    });
+
+    it("draws a stored name through the catalog's approved label", async () => {
+      mockFormats([{ id: 1, format_name: "cdr" }]);
+      renderWithProviders(<FormatAdmin />);
+
+      const table = await screen.findByRole("table", { name: "Formats" });
+      expect(await within(table).findByText("CD-R")).toBeInTheDocument();
+      expect(within(table).getByText("cdr")).toBeInTheDocument();
+    });
+
+    it("flags a name that already exists, case-insensitively, and holds the add", async () => {
+      const { getReceivedBody } = mockFormats([{ id: 1, format_name: "Vinyl" }]);
+      const { user } = renderWithProviders(<FormatAdmin />);
+      await screen.findAllByText("Vinyl");
+
+      await user.type(screen.getByLabelText(/new format/i), "vinyl ");
+
+      expect(screen.getByText("Vinyl already exists.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Add format/i })).toBeDisabled();
+      expect(getReceivedBody()).toBeUndefined();
+    });
+
+    it("says when a new name will show neutral in the catalog", async () => {
+      mockFormats([]);
+      const { user } = renderWithProviders(<FormatAdmin />);
+
+      await user.type(await screen.findByLabelText(/new format/i), "Cassette");
+
+      expect(screen.getByText("Not a vinyl or CD name — it shows neutral in the catalog.")).toBeInTheDocument();
+    });
+
+    it("renders a failed read as a retry, never as an empty list", async () => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json({ error: "boom" }, { status: 500 })),
+      );
+      renderWithProviders(<FormatAdmin />);
+
+      expect(await screen.findByText("Could not load the formats.")).toBeInTheDocument();
+      expect(screen.queryByText("No formats yet.")).not.toBeInTheDocument();
     });
 
     it("POSTs the new format name and shows it in the list on success", async () => {
       const { getReceivedBody } = mockFormats([{ id: 1, format_name: "Vinyl" }]);
       const { user } = renderWithProviders(<FormatAdmin />);
 
-      await screen.findByText("Vinyl");
+      await screen.findAllByText("Vinyl");
 
       await user.type(screen.getByLabelText(/new format/i), "Cassette");
       await user.click(screen.getByRole("button", { name: /Add Format/i }));
 
       await waitFor(() => expect(getReceivedBody()).toEqual({ name: "Cassette" }));
-      expect(await screen.findByText("Cassette")).toBeInTheDocument();
+      const table = screen.getByRole("table", { name: "Formats" });
+      expect(await within(table).findAllByText("Cassette")).toHaveLength(2);
+      expect(toast.success).toHaveBeenCalledWith("Added Cassette.");
     });
 
     it("clears the input after a successful add", async () => {
@@ -144,7 +188,7 @@ describe("FormatAdmin", () => {
       await user.type(input, "Cassette");
       await user.click(screen.getByRole("button", { name: /Add Format/i }));
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Failed to add format"));
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't add the format. Please try again."));
       expect(toast.error).toHaveBeenCalledTimes(1);
     });
 
@@ -186,17 +230,15 @@ describe("FormatAdmin", () => {
       expect(toast.error).toHaveBeenCalledTimes(1);
     });
 
-    it("shows an error toast and does not submit when the name is whitespace-only", async () => {
+    it("holds the add while the name is blank or whitespace-only, with no toast", async () => {
       const { getReceivedBody } = mockFormats([]);
       const { user } = renderWithProviders(<FormatAdmin />);
 
       const input = await screen.findByLabelText(/new format/i);
       await user.type(input, "   ");
-      await user.click(screen.getByRole("button", { name: /Add Format/i }));
 
-      await waitFor(() =>
-        expect(toast.error).toHaveBeenCalledWith("Format name can't be blank"),
-      );
+      expect(screen.getByRole("button", { name: /Add Format/i })).toBeDisabled();
+      expect(toast.error).not.toHaveBeenCalled();
       expect(getReceivedBody()).toBeUndefined();
     });
   });
