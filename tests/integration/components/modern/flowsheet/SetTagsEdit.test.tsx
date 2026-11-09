@@ -75,6 +75,19 @@ describe("SetTags edit entry point", () => {
   });
 
   it.each([
+    ["an editor", Authorization.DJ, true, true],
+    ["a DJ not on the show", Authorization.DJ, false, false],
+  ])("marks the tag as editable for %s: %s", async (_who, authority, live, marked) => {
+    mockLive.live = live;
+    mockAuth.authority = authority;
+    serve(null);
+    renderWithProviders(<SetTags />);
+
+    await screen.findByText(specialtyCopy.freeform);
+    expect(screen.queryByTestId("EditOutlinedIcon") !== null).toBe(marked);
+  });
+
+  it.each([
     ["a DJ on the air", Authorization.DJ, true, true],
     ["a DJ not on the air", Authorization.DJ, false, false],
     ["a music director on the air", Authorization.MD, true, true],

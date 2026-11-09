@@ -55,7 +55,17 @@ export default function RequestLineControl({ showId }: { showId: number }) {
         value={selected}
         disabled={isLoading}
         renderValue={(option) => option?.label}
-        slotProps={{ button: { "aria-describedby": descriptionId } }}
+        startDecorator={
+          <Typography level="body-sm" textColor="text.tertiary">
+            {requestLineCopy.label}
+          </Typography>
+        }
+        slotProps={{
+          button: { "aria-describedby": descriptionId },
+          // Joy centres the list under the button, and the descriptions make it
+          // wider than the button, so it spills left under the side bar.
+          listbox: { placement: "bottom-start", sx: { maxWidth: "min(28rem, calc(100vw - 32px))" } },
+        }}
         onChange={(_e, value) => value && void choose(value)}
       >
         {Object.entries(requestLineCopy.modes).map(([value, label]) => (

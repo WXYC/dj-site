@@ -80,6 +80,24 @@ describe("RequestLineControl explanation", () => {
     expect(await select()).toHaveTextContent(requestLineCopy.modes.requests);
   });
 
+  it("names itself beside the choice", async () => {
+    serve({ mode: "requests", source: "default" });
+    renderWithProviders(<RequestLineControl showId={SHOW_ID} />);
+
+    await select();
+    expect(screen.getByText(requestLineCopy.label)).toBeVisible();
+  });
+
+  // Centred under the button, the wide list spills left under the side bar.
+  it("opens its list from the button's leading edge", async () => {
+    serve({ mode: "requests", source: "default" });
+    const { user } = renderWithProviders(<RequestLineControl showId={SHOW_ID} />);
+
+    await user.click(await select());
+
+    expect(await screen.findByRole("listbox")).toHaveAttribute("data-popper-placement", "bottom-start");
+  });
+
   it.each([
     ["no request line reported", undefined, SHOW_ID],
     ["another show", { mode: "requests", source: "default" }, 99],
