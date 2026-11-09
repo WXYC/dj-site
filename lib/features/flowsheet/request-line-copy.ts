@@ -8,7 +8,7 @@ export const USUAL_CHOICE = "usual";
 export const requestLineCopy = {
   label: "Request line",
   modes: {
-    requests: "Requests",
+    requests: "Open",
     feedback: "Messages only",
     closed: "Closed",
   } satisfies Record<RequestLineMode, string>,
