@@ -73,7 +73,7 @@ describe("RequestLineControl explanation", () => {
     }
   });
 
-  it("shows an unknown mode as Requests", async () => {
+  it("shows an unknown mode as Open", async () => {
     serve({ mode: "sideways", source: "default" });
     renderWithProviders(<RequestLineControl showId={SHOW_ID} />);
 
@@ -138,7 +138,7 @@ describe("RequestLineControl descriptions", () => {
     }
   });
 
-  it("describes an unknown mode as Requests", async () => {
+  it("describes an unknown mode as Open", async () => {
     serve({ mode: "sideways", source: "default" });
     renderWithProviders(<RequestLineControl showId={SHOW_ID} />);
 
@@ -162,7 +162,7 @@ describe("request-line wording", () => {
 
 describe("RequestLineControl changes", () => {
   it.each([
-    ["Requests", { mode: "closed", source: "dj" }, { request_mode: "requests" }],
+    ["Open", { mode: "closed", source: "dj" }, { request_mode: "requests" }],
     ["Messages only", { mode: "requests", source: "default" }, { request_mode: "feedback" }],
     ["Closed", { mode: "requests", source: "default" }, { request_mode: "closed" }],
     ["Back to the usual", { mode: "closed", source: "dj" }, { request_mode: null }],
