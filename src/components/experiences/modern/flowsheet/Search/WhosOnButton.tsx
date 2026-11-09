@@ -62,7 +62,6 @@ export default function WhosOnButton() {
             setRole(defaultRole);
             setOpen(true);
           }}
-          sx={{ zIndex: 8001 }}
         >
           <Person />
         </IconButton>
