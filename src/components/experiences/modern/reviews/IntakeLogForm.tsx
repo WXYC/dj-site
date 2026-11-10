@@ -1,28 +1,23 @@
 "use client";
 
 import { useId, useState } from "react";
-import { Autocomplete, AutocompleteOption, Button, CircularProgress, FormControl, FormHelperText, FormLabel, Input, Option, Radio, radioClasses, RadioGroup, Select, Sheet, Stack, Typography } from "@mui/joy";
+import { Button, CircularProgress, FormControl, FormHelperText, FormLabel, Input, Radio, radioClasses, RadioGroup, Sheet, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
-import { useGetFormatsQuery, useLazyGetDiscogsPrefillQuery, useSearchLibraryArtistsQuery } from "@/lib/features/catalog/api";
+import { useLazyGetDiscogsPrefillQuery } from "@/lib/features/catalog/api";
 import { discogsPrefillErrorMessage, discogsReleaseIdFrom } from "@/lib/features/catalog/discogsPrefill";
-import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
-import type { ArtistSearchMatch } from "@/lib/features/catalog/types";
 import { bandcampUrlFrom } from "@/lib/features/reviews/bandcampLink";
 import { useLogIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
 import type { CiteTarget } from "@/lib/features/reviews/paths";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 import { useReviewProbablyExists } from "@/src/hooks/useReviewProbablyExists";
-import LabelSearchTypeahead from "../catalog/AddRelease/LabelSearchTypeahead";
 import { REVIEW_COPY } from "./copy";
+import { AlbumField, ArtistField, BandcampField, FormatField, LabelField } from "./IntakeFields";
 import ReviewHint from "./ReviewHint";
 
 const COPY = REVIEW_COPY.intake;
 
 const SUGGESTION_DEBOUNCE_MS = 300;
-const SUGGESTION_MIN_LENGTH = 2;
-const SUGGESTION_LIMIT = 8;
-const NO_SUGGESTIONS: ArtistSearchMatch[] = [];
 
 type Arrival = "disc" | "files";
 
@@ -83,25 +78,10 @@ type IntakeLogFormProps = {
 };
 
 export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = false, autoFocus = false }: IntakeLogFormProps = {}) {
-  const { data: formats } = useGetFormatsQuery(undefined);
   const [logItem, { isLoading: logging }] = useLogIntakeItemMutation();
   const [form, setForm] = useState<IntakeForm>(EMPTY_FORM);
-  // The text the user typed, as opposed to text set by picking a row or resetting the form.
-  // Only typed text is searched, so picking a name does not trigger a second search for it.
-  const [typedArtist, setTypedArtist] = useState("");
   const filesHintId = useId();
   const [fetchPrefill] = useLazyGetDiscogsPrefillQuery();
-
-  // `currentData` is undefined while the search for the current term is pending or has
-  // failed, whereas `data` would keep the rows of an earlier term. Options also stay hidden
-  // until the debounce has caught up with the typed text and the text is long enough to search.
-  const typedTerm = typedArtist.trim();
-  const debouncedTerm = useDebouncedValue(typedTerm, SUGGESTION_DEBOUNCE_MS);
-  const { currentData: suggestions } = useSearchLibraryArtistsQuery(
-    { q: debouncedTerm, limit: SUGGESTION_LIMIT },
-    { skip: debouncedTerm.length < SUGGESTION_MIN_LENGTH },
-  );
-  const showSuggestions = typedTerm.length >= SUGGESTION_MIN_LENGTH && typedTerm === debouncedTerm;
 
   // The hint and the one-step button follow the debounced text and wait until the fields hold it, and until
   // both reads for it have ended: they answer on their own, so the target is not read from half an answer.
@@ -184,7 +164,6 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
       onBusyChange?.(false);
     }
     setForm(EMPTY_FORM);
-    setTypedArtist("");
     onLogged?.(item, withCite && cite ? cite : undefined);
   };
 
@@ -223,54 +202,15 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
           {discogsRefused && <FormHelperText>{COPY.discogsRefused}</FormHelperText>}
           {!discogsRefused && prefillLine && <FormHelperText role="status">{prefillLine.text}</FormHelperText>}
         </FormControl>
-        <FormControl error={bandcampRefused}>
-          <FormLabel>{COPY.bandcampUrl}</FormLabel>
-          <Input
-            slotProps={{ input: { inputMode: "url", "aria-invalid": bandcampRefused } }}
-            value={form.bandcamp}
-            onChange={(e) => setForm((f) => ({ ...f, bandcamp: e.target.value }))}
-          />
-          {bandcampRefused && <FormHelperText>{COPY.bandcampRefused}</FormHelperText>}
-        </FormControl>
-        <FormControl required>
-          <FormLabel>{COPY.artist}</FormLabel>
-          <Autocomplete<ArtistSearchMatch, false, true, true>
-            freeSolo
-            // The input text is the only value: no picked option is kept, so nothing survives a form reset.
-            value=""
-            disableClearable
-            options={showSuggestions ? (suggestions?.artists ?? NO_SUGGESTIONS) : NO_SUGGESTIONS}
-            filterOptions={(options) => options}
-            getOptionLabel={(option) => (typeof option === "string" ? option : option.artist_name)}
-            getOptionKey={(option) => (typeof option === "string" ? option : `${option.id}-${option.genre_id}`)}
-            inputValue={form.artist}
-            onInputChange={(_e, artist, reason) => {
-              setForm((f) => ({ ...f, artist }));
-              setTypedArtist(reason === "input" ? artist : "");
-            }}
-            renderOption={(props, option) => (
-              <AutocompleteOption {...props}>
-                <Typography level="body-md">{option.artist_name}</Typography>
-                <Typography level="body-sm" sx={{ ml: "auto" }}>{option.genre_name}</Typography>
-              </AutocompleteOption>
-            )}
-          />
-        </FormControl>
-        <FormControl required>
-          <FormLabel>{COPY.album}</FormLabel>
-          <Input value={form.album} onChange={(e) => setForm((f) => ({ ...f, album: e.target.value }))} />
-        </FormControl>
-        <FormControl>
-          <FormLabel>{COPY.label}</FormLabel>
-          <LabelSearchTypeahead
-            size="md"
-            placeholder=""
-            value={form.label}
-            onChange={(label) => setForm((f) => ({ ...f, label }))}
-            onSelect={(l) => setForm((f) => ({ ...f, labelPick: { id: l.id, name: l.label_name.trim() } }))}
-            onSelectionCleared={() => setForm((f) => ({ ...f, labelPick: null }))}
-          />
-        </FormControl>
+        <BandcampField value={form.bandcamp} refused={bandcampRefused} onChange={(bandcamp) => setForm((f) => ({ ...f, bandcamp }))} />
+        <ArtistField value={form.artist} onChange={(artist) => setForm((f) => ({ ...f, artist }))} />
+        <AlbumField value={form.album} onChange={(album) => setForm((f) => ({ ...f, album }))} />
+        <LabelField
+          value={form.label}
+          onChange={(label) => setForm((f) => ({ ...f, label }))}
+          onSelect={(l) => setForm((f) => ({ ...f, labelPick: { id: l.id, name: l.label_name.trim() } }))}
+          onSelectionCleared={() => setForm((f) => ({ ...f, labelPick: null }))}
+        />
         <FormControl required>
           <FormLabel>{COPY.arrival}</FormLabel>
           <RadioGroup
@@ -306,19 +246,7 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
             </Sheet>
           </RadioGroup>
         </FormControl>
-        {form.arrival === "disc" && (
-          <FormControl required>
-            <FormLabel>{COPY.format}</FormLabel>
-            <Select<number>
-              value={form.formatId}
-              onChange={(_e, choice) => setForm((f) => ({ ...f, formatId: choice }))}
-            >
-              {(formats ?? []).map((f) => (
-                <Option key={f.id} value={f.id}>{formatLabel(f.format_name)}</Option>
-              ))}
-            </Select>
-          </FormControl>
-        )}
+        {form.arrival === "disc" && <FormatField value={form.formatId} onChange={(formatId) => setForm((f) => ({ ...f, formatId }))} />}
         {/* Mounted while empty so a hint that appears is announced, whole. */}
         <div role="status" aria-atomic="true">{cite && <ReviewHint artist={debouncedArtist} album={debouncedAlbum} />}</div>
         <Button type="submit" loading={logging} disabled={!ready}>{COPY.log}</Button>

@@ -35,7 +35,9 @@ import HeadedSection from "./HeadedSection";
 import LeaveDialog from "./LeaveDialog";
 import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/RotationFilingBench";
 import { REVIEW_COPY } from "./copy";
+import { useFccNoteViewer } from "./FccNoteActions";
 import FccNotesPanel from "./FccNotesPanel";
+import IntakeEditForm from "./IntakeEditForm";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
 import IntakeProgress from "./IntakeProgress";
 import { GET_FILE_IT } from "./intakeLinks";
@@ -104,6 +106,8 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const latestItem = useRef(item.data);
   latestItem.current = item.data;
   const [notice, setNotice] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const { isMD } = useFccNoteViewer();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
   // Where a link into the page asks it to start: ?get=record opens the form, ?get=cite focuses the first cite button, ?get=file scrolls to File it and focuses it.
@@ -376,6 +380,14 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     }
   };
 
+  // A save from the edit form: it closes on success or after a refusal the server worded (the record is filed and was reread), and stays open with what was typed on any other failure.
+  const saveEdit = async (body: IntakeItemPatch) => {
+    const { line, reloaded } = await changeCitation(body);
+    if (line === undefined || reloaded) {
+      setEditing(false);
+    }
+  };
+
   // A copied form review's save: the review is recorded first, so a refused or failed citation loses nothing. The page's hold is released once the citation's write and reload settle.
   const citeCopied = (cites: NonNullable<Recording["cites"]>) => async (release: () => void) => {
     // A citation made since the copy was opened stays: setting this one would switch it and take its cover review off.
@@ -515,6 +527,11 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       <Stack spacing={2}>
         <RecordHeader record={record} headingLevel={3} chip={chipLabel && <Chip>{chipLabel}</Chip>} />
         <IntakeProgress item={item.data} />
+        {unfiled && isMD && (editing ? (
+          <IntakeEditForm item={item.data} saving={citation.isLoading} onSave={saveEdit} onCancel={() => setEditing(false)} />
+        ) : (
+          <Button variant="outlined" color="neutral" onClick={() => setEditing(true)} sx={{ alignSelf: "flex-start" }}>{COPY.edit}</Button>
+        ))}
         {originShown && <RecordOrigin item={item.data} focusCite={getParam === "cite" && canCite && !citeTarget} settled={!wantsOrigin}>{recordArea}</RecordOrigin>}
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "minmax(0, 1fr)", [TWO_COLUMNS]: { gridTemplateColumns: "minmax(0, 1fr) minmax(16rem, 20rem)", alignItems: "start" } }}>
           <Stack data-column="main" spacing={2}>
