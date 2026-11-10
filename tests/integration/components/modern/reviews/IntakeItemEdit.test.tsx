@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { digitalItem, fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
 // The bench's artist field is gated by AuthorizedView, which resolves the music director tier from the session.
@@ -49,6 +49,7 @@ import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import type { IntakeItemPatch } from "@wxyc/shared";
 import { CssVarsProvider } from "@mui/joy/styles";
 import modernTheme from "@/lib/features/experiences/modern/theme";
+import IntakeEditForm from "@/src/components/experiences/modern/reviews/IntakeEditForm";
 import IntakeItemScreen from "@/src/components/experiences/modern/reviews/IntakeItemScreen";
 
 const ITEM_ID = 11;
@@ -74,7 +75,7 @@ const dogaItem = (overrides = {}) =>
 const serve = (start: ReturnType<typeof dogaItem>, refuse?: { reason: string }) => {
   const box = { item: start, reads: 0 };
   const sent: IntakeItemPatch[] = [];
-  fakeReviewsEndpoints({ records: [start], forItem: { [ITEM_ID]: [] } });
+  fakeReviewsEndpoints({ records: [start], forItem: { [ITEM_ID]: [] }, formats: [{ id: 1, format_name: "cd" }, { id: 7, format_name: "Vinyl" }, CDR_FORMAT] });
   server.use(
     http.get(ITEM_PATH, () => {
       box.reads += 1;
@@ -104,7 +105,9 @@ const openEdit = async (user: ReturnType<typeof renderScreen>["user"]) => {
 const replace = async (user: ReturnType<typeof renderScreen>["user"], label: RegExp | string, text: string) => {
   const field = screen.getByLabelText(label);
   await user.clear(field);
-  if (text) await user.type(field, text);
+  if (text) {
+    await user.type(field, text);
+  }
 };
 
 describe("IntakeItemScreen edit", () => {
@@ -127,7 +130,7 @@ describe("IntakeItemScreen edit", () => {
     expect(screen.getByLabelText(REVIEW_COPY.intake.bandcampUrl)).toHaveValue("https://juanamolina.bandcamp.com/album/doga");
   });
 
-  it("sends only the changed fields, and no label_id for label text that is not a picked row", async () => {
+  it("sends only the changed fields, and label_id null for label text that is not a picked row", async () => {
     const { sent } = serve(dogaItem());
     const { user } = renderScreen();
     await openEdit(user);
@@ -137,7 +140,7 @@ describe("IntakeItemScreen edit", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]).toEqual({ record_label: "Sonamos Records", bandcamp_url: "https://juanamolina.bandcamp.com/album/doga-2" });
+    expect(sent[0]).toEqual({ record_label: "Sonamos Records", label_id: null, bandcamp_url: "https://juanamolina.bandcamp.com/album/doga-2" });
     await waitFor(() => expect(screen.queryByRole("form", { name: EDIT })).not.toBeInTheDocument());
   });
 
@@ -170,6 +173,54 @@ describe("IntakeItemScreen edit", () => {
 
   it("sends the album and artist when they change", async () => {
     const { sent } = serve(dogaItem());
+    const { user } = renderScreen();
+    await openEdit(user);
+
+    await replace(user, /^Album/, "Halo");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toEqual({ album_title: "Halo" });
+  });
+
+  it("saves another edit on a record whose stored Bandcamp link is on a custom domain, without sending or flagging the link", async () => {
+    const { sent } = serve(dogaItem({ bandcamp_url: "https://music.juanamolina.com/album/doga" }));
+    const { user } = renderScreen();
+    await openEdit(user);
+
+    expect(screen.getByLabelText(REVIEW_COPY.intake.bandcampUrl)).not.toHaveAttribute("aria-invalid", "true");
+    await replace(user, /^Album/, "Halo");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toEqual({ album_title: "Halo" });
+  });
+
+  it("keeps Save off for a changed Bandcamp link the form refuses, even when the stored link is on a custom domain", async () => {
+    serve(dogaItem({ bandcamp_url: "https://music.juanamolina.com/album/doga" }));
+    const { user } = renderScreen();
+    await openEdit(user);
+
+    await replace(user, REVIEW_COPY.intake.bandcampUrl, "https://music.juanamolina.com/album/doga-2");
+
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("sends format_id when a disc's format changes", async () => {
+    const { sent } = serve(dogaItem({ format_id: 1 }));
+    const { user } = renderScreen();
+    await openEdit(user);
+
+    await user.click(screen.getByRole("combobox", { name: /^Format/ }));
+    await user.click(await screen.findByRole("option", { name: /vinyl/i }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toEqual({ format_id: 7 });
+  });
+
+  it("never sends format_id for a digital item", async () => {
+    const { sent } = serve(digitalItem({ id: ITEM_ID, artist_name: "Juana Molina", album_title: "DOGA", state: "reviewed", effective_state: "reviewed" }));
     const { user } = renderScreen();
     await openEdit(user);
 
@@ -274,5 +325,21 @@ describe("IntakeItemScreen edit", () => {
 
     await screen.findByText("DOGA");
     expect(screen.queryByRole("button", { name: EDIT })).not.toBeInTheDocument();
+  });
+});
+
+describe("IntakeEditForm", () => {
+  it("measures the patch against the item it opened on, so a refetch of the item adds no revert", async () => {
+    const onSave = vi.fn();
+    const opened = dogaItem();
+    const { user, rerender } = renderWithProviders(<IntakeEditForm item={opened} saving={false} onSave={onSave} onCancel={vi.fn()} />);
+
+    // The record is reread while the form is open, and now carries no Bandcamp link and another label.
+    rerender(<IntakeEditForm item={{ ...opened, bandcamp_url: null, record_label: "Elsewhere", label_id: null }} saving={false} onSave={onSave} onCancel={vi.fn()} />);
+    await replace(user, /^Album/, "Halo");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith({ album_title: "Halo" });
   });
 });
