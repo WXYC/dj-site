@@ -490,6 +490,8 @@ export const REVIEW_COPY = {
     printSlip: "Print the slip",
     /** Approved. */
     filed: "Filed.",
+    /** Action on an unfiled record, for music directors: opens the record's details to change. */
+    edit: "Edit",
     /** Approved. */
     delete: "Delete",
     /** Approved. */
