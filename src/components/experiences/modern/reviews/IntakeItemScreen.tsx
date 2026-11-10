@@ -382,8 +382,8 @@ export default function IntakeItemScreen({ id }: { id: number }) {
 
   // A save from the edit form: it closes on success or after a refusal the server worded (the record is filed and was reread), and stays open with what was typed on any other failure.
   const saveEdit = async (body: IntakeItemPatch) => {
-    const { line, reloaded } = await changeCitation(body);
-    if (line === undefined || reloaded) {
+    const { reloaded } = await changeCitation(body);
+    if (reloaded) {
       setEditing(false);
     }
   };
