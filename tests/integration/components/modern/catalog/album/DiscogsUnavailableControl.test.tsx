@@ -416,6 +416,33 @@ describe("DiscogsUnavailableControl", () => {
       );
     });
 
+    it("reports an edited note as unsaved until it is saved", async () => {
+      mockPatch();
+      const onUnsavedChange = vi.fn();
+      const { user } = renderWithProviders(
+        <DiscogsUnavailableControl
+          album={juanaMolinaAlbum({ discogsUnavailable: true, discogsUnavailableNote: "old reason" })}
+          onUnsavedChange={onUnsavedChange}
+        />,
+      );
+
+      const note = await screen.findByLabelText("Reason (optional)");
+      expect(onUnsavedChange).not.toHaveBeenCalledWith(true);
+      await user.type(note, ", still");
+      expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+
+      await user.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() => expect(onUnsavedChange).toHaveBeenLastCalledWith(false));
+    });
+
+    it("has no heading of its own, since the tab names it", async () => {
+      renderWithProviders(<DiscogsUnavailableControl album={juanaMolinaAlbum()} />);
+
+      await screen.findByText("Not on Discogs");
+      expect(screen.queryByText("Discogs availability")).not.toBeInTheDocument();
+    });
+
     it("shows an error toast when saving the note fails", async () => {
       server.use(
         http.patch(`${TEST_BACKEND_URL}/library/:id`, () =>

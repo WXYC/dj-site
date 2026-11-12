@@ -157,7 +157,7 @@ describe("CompilationCreditsControl", () => {
       renderWithProviders(<CompilationCreditsControl album={album} />);
 
       await waitFor(() => expect(mockFetchOrgRole).not.toHaveBeenCalled());
-      expect(screen.queryByText("Per-track credits")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("compilation-credits-section-card")).not.toBeInTheDocument();
       expect(storedCalls()).toBe(0);
     });
 
@@ -172,7 +172,7 @@ describe("CompilationCreditsControl", () => {
       renderWithProviders(<CompilationCreditsControl album={album} />);
 
       await waitFor(() => expect(mockFetchOrgRole).not.toHaveBeenCalled());
-      expect(screen.queryByText("Per-track credits")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("compilation-credits-section-card")).not.toBeInTheDocument();
       expect(storedCalls()).toBe(0);
     });
 
@@ -183,7 +183,7 @@ describe("CompilationCreditsControl", () => {
       renderWithProviders(<CompilationCreditsControl album={compilationAlbum()} />);
 
       await waitFor(() => expect(mockFetchOrgRole).toHaveBeenCalled());
-      await waitFor(() => expect(screen.queryByText("Per-track credits")).not.toBeInTheDocument());
+      await waitFor(() => expect(screen.queryByTestId("compilation-credits-section-card")).not.toBeInTheDocument());
       expect(storedCalls()).toBe(0);
     });
   });
@@ -196,6 +196,8 @@ describe("CompilationCreditsControl", () => {
     const card = await screen.findByTestId("compilation-credits-section-card");
     expect(card).toBeInTheDocument();
     expect(card.className).toMatch(/MuiCard-root/);
+    // The tab names the section, so the card carries no heading of its own.
+    expect(screen.queryByText("Per-track credits")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Import from Discogs" }),
     ).toBeInTheDocument();

@@ -38,9 +38,12 @@ import {
 } from "@/lib/features/catalog/releaseSaveOutcome";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
+import { useReportUnsaved } from "./useReportUnsaved";
 
 interface AlbumEditFormProps {
   album: AlbumEntry;
+  /** Called with whether any field differs from its saved value, including a draft too invalid to save. */
+  onUnsavedChange?: (unsaved: boolean) => void;
 }
 
 type SavedFields = {
@@ -111,17 +114,17 @@ function artistLinkFrom(saved: SavedFields, name: string, codeLetters: string): 
  * the old (correct-looking) name. A single batched request makes that
  * invariant enforceable before anything goes out.
  */
-function AlbumEditForm({ album }: AlbumEditFormProps) {
+function AlbumEditForm({ album, onUnsavedChange }: AlbumEditFormProps) {
   return (
     <RequireMD>
-      <FormSectionCard title="Edit release" data-testid="edit-release-section-card">
-        <AlbumEditFormFields album={album} />
+      <FormSectionCard data-testid="edit-release-section-card">
+        <AlbumEditFormFields album={album} onUnsavedChange={onUnsavedChange} />
       </FormSectionCard>
     </RequireMD>
   );
 }
 
-function AlbumEditFormFields({ album }: AlbumEditFormProps) {
+function AlbumEditFormFields({ album, onUnsavedChange }: AlbumEditFormProps) {
   const [updateAlbum, { isLoading: saving }] = useUpdateAlbumMutation();
   const { data: genres } = useGetGenresQuery();
   const { data: formats } = useGetFormatsQuery();
@@ -281,6 +284,17 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   }
 
   const hasChanges = Object.keys(changes).length > 0;
+  // Wider than `hasChanges`, which leaves out a value too invalid to send: an
+  // emptied title is still work the MD has not saved.
+  const unsaved =
+    hasChanges ||
+    trimmedTitle !== saved.title ||
+    trimmedLabel !== saved.label ||
+    trimmedAlternateArtistName !== saved.alternateArtistName ||
+    trimmedAlbumArtist !== saved.albumArtist ||
+    discQuantity !== saved.discQuantity ||
+    artistId !== saved.artistId;
+  useReportUnsaved(unsaved, onUnsavedChange);
   // An album always needs a definite artist link, so Save must stay blocked
   // while it's unresolved — whether that's from a genre change invalidating
   // the seeded id or from editing the artist text away from a confirmed pick.
@@ -350,9 +364,6 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
 
   return (
     <Stack spacing={1.5}>
-      <Divider />
-      <Typography level="title-sm">Edit Release</Typography>
-
       <FormControl error={titleInvalid || titleTooLong}>
         <FormLabel>Title</FormLabel>
         <Input

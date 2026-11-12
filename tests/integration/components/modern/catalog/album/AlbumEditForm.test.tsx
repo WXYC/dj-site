@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
+import type { UserEvent } from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import {
   renderWithProviders,
@@ -312,6 +313,53 @@ describe("AlbumEditForm", () => {
         expect(screen.getByLabelText("Label")).toHaveValue("Sonamos");
         expect(screen.getByLabelText("Alternate Artist Name")).toHaveValue("");
         expect(screen.getByRole("button", SAVE_BUTTON)).toBeDisabled();
+      });
+    });
+
+    describe("reporting unsaved changes", () => {
+      // An invalid draft is still unsaved work: it sends nothing, but leaving
+      // the tab must not make it look as though nothing was typed.
+      it.each([
+        { draft: "an edited title", edit: (title: HTMLElement, user: UserEvent) => user.type(title, "!") },
+        { draft: "a cleared title", edit: (title: HTMLElement, user: UserEvent) => user.clear(title) },
+      ])("reports $draft as unsaved, and clears it when put back", async ({ edit }) => {
+        const onUnsavedChange = vi.fn();
+        const { user } = renderWithProviders(
+          <AlbumEditForm album={juanaMolinaAlbum()} onUnsavedChange={onUnsavedChange} />,
+        );
+
+        const title = await screen.findByLabelText("Title");
+        expect(onUnsavedChange).not.toHaveBeenCalledWith(true);
+
+        await edit(title, user);
+        expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+
+        await user.clear(title);
+        await user.type(title, "DOGA");
+        expect(onUnsavedChange).toHaveBeenLastCalledWith(false);
+      });
+
+      it("clears the report once the draft is saved", async () => {
+        mockPatch();
+        const onUnsavedChange = vi.fn();
+        const { user } = renderWithProviders(
+          <AlbumEditForm album={juanaMolinaAlbum()} onUnsavedChange={onUnsavedChange} />,
+        );
+
+        await user.type(await screen.findByLabelText("Title"), " (Reissue)");
+        expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+
+        await user.click(screen.getByRole("button", SAVE_BUTTON));
+
+        await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith("Album updated"));
+        expect(onUnsavedChange).toHaveBeenLastCalledWith(false);
+      });
+
+      it("has no heading of its own, since the tab names it", async () => {
+        renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+
+        await screen.findByLabelText("Title");
+        expect(screen.queryByText(/edit release/i)).not.toBeInTheDocument();
       });
     });
 

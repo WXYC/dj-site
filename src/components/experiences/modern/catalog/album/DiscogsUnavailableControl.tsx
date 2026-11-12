@@ -18,9 +18,12 @@ import { useUpdateAlbumMutation } from "@/lib/features/catalog/api";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { DISCOGS_UNAVAILABLE_NOTE_MAX_LENGTH } from "@/lib/features/catalog/constants";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
+import { useReportUnsaved } from "./useReportUnsaved";
 
 interface DiscogsUnavailableControlProps {
   album: AlbumEntry;
+  /** Called with whether the reason holds an edit not yet saved. The switch saves as it flips, so it never does. */
+  onUnsavedChange?: (unsaved: boolean) => void;
 }
 
 /**
@@ -30,7 +33,7 @@ interface DiscogsUnavailableControlProps {
  * mount only, so switching albums without a remount would leak the prior
  * album's draft note.
  */
-function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
+function DiscogsUnavailableControl({ album, onUnsavedChange }: DiscogsUnavailableControlProps) {
   const [updateAlbum] = useUpdateAlbumMutation();
 
   const [flag, setFlag] = useState(album.discogsUnavailable ?? false);
@@ -55,6 +58,7 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
   // unlabelled 400. Match the check that actually rejects, not the column
   // behind it; if the server ever moves to code points, this moves with it.
   const noteTooLong = trimmedNote.length > DISCOGS_UNAVAILABLE_NOTE_MAX_LENGTH;
+  useReportUnsaved(flag && noteChanged, onUnsavedChange);
 
   const handleFlagChange = async (next: boolean) => {
     const previousFlag = flag;
@@ -115,10 +119,7 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
 
   return (
     <RequireMD>
-      <FormSectionCard
-        title="Discogs availability"
-        data-testid="discogs-availability-section-card"
-      >
+      <FormSectionCard data-testid="discogs-availability-section-card">
         <FormControl
           orientation="horizontal"
           sx={{ justifyContent: "space-between", alignItems: "center" }}

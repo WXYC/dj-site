@@ -27,6 +27,21 @@ interface CompilationCreditsControlProps {
 }
 
 /**
+ * Whether this control renders anything for `album`: a compilation that has a
+ * real `library.id`. The release card reads it to leave out the Credits tab.
+ */
+export function takesCompilationCredits(
+  album: AlbumEntry,
+): album is AlbumEntry & { id: number } {
+  // `synthesizeAlbumId` hands out negative ids to rows the library never
+  // linked, and an LML-sourced row carries a legacy id in this field. Neither
+  // addresses a `library.id`, and every compilation-track endpoint resolves its
+  // path param against one — so a request built from either would silently
+  // read or write some other, real release's rows.
+  return album.id !== null && album.id > 0 && isVariousArtists(album.artist.lettercode);
+}
+
+/**
  * Per-track artist credits for a compilation already in the catalog — the
  * route modern did not have. `VaTracklistStep` used to be reachable only from
  * inside the add-release modal, so a compilation filed before credits existed,
@@ -50,20 +65,13 @@ interface CompilationCreditsControlProps {
 export default function CompilationCreditsControl({
   album,
 }: CompilationCreditsControlProps) {
-  // `synthesizeAlbumId` hands out negative ids to rows the library never
-  // linked, and an LML-sourced row carries a legacy id in this field. Neither
-  // addresses a `library.id`, and every compilation-track endpoint resolves its
-  // path param against one — so a request built from either would silently
-  // read or write some other, real release's rows.
-  const libraryId = album.id;
-
-  if (libraryId === null || libraryId <= 0 || !isVariousArtists(album.artist.lettercode)) {
+  if (!takesCompilationCredits(album)) {
     return null;
   }
 
   return (
     <RequireMD>
-      <CompilationCreditsFields libraryId={libraryId} albumTitle={album.title} />
+      <CompilationCreditsFields libraryId={album.id} albumTitle={album.title} />
     </RequireMD>
   );
 }
@@ -126,7 +134,6 @@ function CompilationCreditsFields({
 
   return (
     <FormSectionCard
-      title="Per-track credits"
       data-testid="compilation-credits-section-card"
       action={
         <Button
