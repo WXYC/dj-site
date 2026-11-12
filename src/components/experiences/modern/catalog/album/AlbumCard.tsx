@@ -23,12 +23,9 @@ import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/A
 import ReviewsPanel from "@/src/components/experiences/modern/reviews/ReviewsPanel";
 import { RequireMD } from "@/src/components/shared/Authorization";
 import AlbumArtworkWithRotationBadge from "./AlbumArtworkWithRotationBadge";
-import AlbumEditForm from "./AlbumEditForm";
-import CompilationCreditsControl from "./CompilationCreditsControl";
+import AlbumEditTabs from "./AlbumEditTabs";
 import DiscogsMarkup from "./DiscogsMarkupRenderer";
-import DiscogsUnavailableControl from "./DiscogsUnavailableControl";
 import LibraryStatus from "./LibraryStatus";
-import RotationClassifyControl from "./RotationClassifyControl";
 import StreamingLinks from "./StreamingLinks";
 import Tracklist from "./Tracklist";
 
@@ -44,8 +41,8 @@ interface AlbumCardProps {
 
 /**
  * A release's details card on the modern experience. It opens read-only for
- * every account; MD+ accounts get an Edit button that reveals the release's
- * edit controls and a Done button that hides them again.
+ * every account; MD+ accounts get an Edit button that swaps the card's body
+ * below the header for the tabbed editor, and a Done button that swaps it back.
  */
 export default function AlbumCard({
   album,
@@ -73,7 +70,8 @@ export default function AlbumCard({
     if (el) {
       setBioOverflows(el.scrollHeight > el.clientHeight);
     }
-  }, [artistBio]);
+    // The bio is not rendered while editing, so it is measured again on Done.
+  }, [artistBio, isEditing]);
 
   // MD-flagged release: the matched Discogs release is wrong or inapplicable
   // (embargoed promo, audience-segment release, etc). Blocks sourced from the
@@ -98,6 +96,15 @@ export default function AlbumCard({
   // rest of the rotation-admin surface. Flipping the flag on restores the full
   // override (definitive links win over LML, empty urls render no chips).
   const definitiveUrls = isRotationAdminEnabled() ? album.urls : undefined;
+
+  // Drawn by the read-only body and by the editor's Discogs tab, never both at once.
+  const tracklist = isDiscogsUnavailable ? null : metadataLoading ? (
+    <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+      <CircularProgress size="sm" />
+    </Box>
+  ) : (
+    <Tracklist tracklist={metadata?.tracklist} />
+  );
 
   return (
     <Card
@@ -205,75 +212,66 @@ export default function AlbumCard({
             </Button>
           </Stack>
         </RequireMD>
-        {isEditing && (
-          <>
-            {/* Keyed per album so drafts reset when the album changes; prefixes keep sibling keys unique. */}
-            <DiscogsUnavailableControl key={`discogs-${album.id}`} album={album} />
-            <AlbumEditForm key={`edit-${album.id}`} album={album} />
-            <RotationClassifyControl key={`rotation-${album.id}`} album={album} />
-            <CompilationCreditsControl key={`credits-${album.id}`} album={album} />
-          </>
-        )}
-        {(definitiveUrls?.length || !isDiscogsUnavailable) && (
-          <StreamingLinks
-            metadata={metadata}
-            urls={definitiveUrls}
-            discogsUnavailable={isDiscogsUnavailable}
-          />
-        )}
-        {!isDiscogsUnavailable && artistBio && (
-          <>
-            <Divider sx={{ my: 1 }} />
-            <Typography level="title-sm" sx={{ mb: 0.5 }}>
-              About {album.album_artist ?? album.artist.name}
-              {artistWikipediaUrl && (
-                <Link
-                  href={artistWikipediaUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  level="body-xs"
-                  sx={{ ml: 1 }}
-                >
-                  Wikipedia
-                </Link>
-              )}
-            </Typography>
-            <Typography
-              ref={bioRef}
-              component="div"
-              level="body-sm"
-              sx={{
-                ...(!bioExpanded && { maxHeight: 80, overflow: "hidden" }),
-                color: "text.secondary",
-              }}
-            >
-              {bioTokens ? <DiscogsMarkup tokens={bioTokens} /> : artistBio}
-            </Typography>
-            {bioOverflows && !bioExpanded && (
-              <Link
-                component="button"
-                level="body-xs"
-                onClick={() => setBioExpanded(true)}
-              >
-                Read More
-              </Link>
-            )}
-          </>
-        )}
-        {album.id != null && (
-          <ReviewsPanel
-            key={`reviews-${album.id}`}
-            albumId={album.id}
-            record={{ artist: displayedArtist(album.alternate_artist, album.artist.name, isVariousArtists(album.artist.lettercode)), album: album.title, label: album.label ?? "" }}
-          />
-        )}
-        <Divider sx={{ my: 1 }} />
-        {isDiscogsUnavailable ? null : metadataLoading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-            <CircularProgress size="sm" />
-          </Box>
+        {isEditing ? (
+          <AlbumEditTabs key={album.id} album={album} tracklist={tracklist} />
         ) : (
-          <Tracklist tracklist={metadata?.tracklist} />
+          <>
+            {(definitiveUrls?.length || !isDiscogsUnavailable) && (
+              <StreamingLinks
+                metadata={metadata}
+                urls={definitiveUrls}
+                discogsUnavailable={isDiscogsUnavailable}
+              />
+            )}
+            {!isDiscogsUnavailable && artistBio && (
+              <>
+                <Divider sx={{ my: 1 }} />
+                <Typography level="title-sm" sx={{ mb: 0.5 }}>
+                  About {album.album_artist ?? album.artist.name}
+                  {artistWikipediaUrl && (
+                    <Link
+                      href={artistWikipediaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      level="body-xs"
+                      sx={{ ml: 1 }}
+                    >
+                      Wikipedia
+                    </Link>
+                  )}
+                </Typography>
+                <Typography
+                  ref={bioRef}
+                  component="div"
+                  level="body-sm"
+                  sx={{
+                    ...(!bioExpanded && { maxHeight: 80, overflow: "hidden" }),
+                    color: "text.secondary",
+                  }}
+                >
+                  {bioTokens ? <DiscogsMarkup tokens={bioTokens} /> : artistBio}
+                </Typography>
+                {bioOverflows && !bioExpanded && (
+                  <Link
+                    component="button"
+                    level="body-xs"
+                    onClick={() => setBioExpanded(true)}
+                  >
+                    Read More
+                  </Link>
+                )}
+              </>
+            )}
+            {album.id != null && (
+              <ReviewsPanel
+                key={`reviews-${album.id}`}
+                albumId={album.id}
+                record={{ artist: displayedArtist(album.alternate_artist, album.artist.name, isVariousArtists(album.artist.lettercode)), album: album.title, label: album.label ?? "" }}
+              />
+            )}
+            <Divider sx={{ my: 1 }} />
+            {tracklist}
+          </>
         )}
       </CardContent>
       <CardOverflow

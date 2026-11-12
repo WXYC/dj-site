@@ -10,7 +10,8 @@ import {
 } from "./formSectionCardStyles";
 
 type FormSectionCardProps = {
-  title: string;
+  /** The section's heading. Omit it where something around the card already names the section, such as a tab. */
+  title?: string;
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
@@ -20,6 +21,7 @@ type FormSectionCardProps = {
   "data-testid"?: string;
 };
 
+/** An outlined card framing one section of a form, with an optional heading, header action and footer. */
 export default function FormSectionCard({
   title,
   description,
@@ -33,7 +35,7 @@ export default function FormSectionCard({
   // Both branches must render this identically: the three adopters that pass no
   // action rely on the no-action branch producing the DOM they had before the
   // action slot existed.
-  const heading = <Typography level="title-sm">{title}</Typography>;
+  const heading = title ? <Typography level="title-sm">{title}</Typography> : null;
 
   return (
     <Card
@@ -53,7 +55,7 @@ export default function FormSectionCard({
             direction="row"
             spacing={1}
             alignItems="center"
-            justifyContent="space-between"
+            justifyContent={heading ? "space-between" : "flex-end"}
           >
             {heading}
             {action}
@@ -69,7 +71,7 @@ export default function FormSectionCard({
             {description}
           </Typography>
         ) : null}
-        <Stack spacing={1.5} sx={{ mt: description ? 1 : 0.75 }}>
+        <Stack spacing={1.5} sx={{ mt: description ? 1 : heading || action ? 0.75 : 0 }}>
           {children}
         </Stack>
         {footer}

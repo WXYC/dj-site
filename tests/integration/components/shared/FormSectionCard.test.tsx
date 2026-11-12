@@ -81,6 +81,37 @@ describe("FormSectionCard", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
+  // A section shown under a tab of the same name drops its title.
+  it("renders no heading when untitled", () => {
+    renderWithProviders(
+      <FormSectionCard data-testid="untitled-card">
+        <span>fields</span>
+      </FormSectionCard>
+    );
+
+    const body = screen.getByTestId("untitled-card").firstElementChild as HTMLElement;
+    expect(body.querySelector(".MuiTypography-root")).toBeNull();
+    expect(body.firstElementChild).toContainElement(screen.getByText("fields"));
+  });
+
+  it("keeps an untitled card's action in a header row above the children", () => {
+    renderWithProviders(
+      <FormSectionCard
+        action={<button type="button">Import from Discogs</button>}
+        data-testid="untitled-action-card"
+      >
+        <span>fields</span>
+      </FormSectionCard>
+    );
+
+    const body = screen.getByTestId("untitled-action-card").firstElementChild as HTMLElement;
+    const header = body.firstElementChild as HTMLElement;
+    expect(header.className).toMatch(/MuiStack-root/);
+    expect(within(header).getByRole("button", { name: "Import from Discogs" })).toBeInTheDocument();
+    expect(within(header).queryByText("fields")).not.toBeInTheDocument();
+    expect(body.querySelector(".MuiTypography-root")).toBeNull();
+  });
+
   it("dims and blocks pointer events when disabled", () => {
     renderWithProviders(
       <FormSectionCard title="Album" disabled data-testid="disabled-card">

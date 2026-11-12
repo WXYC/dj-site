@@ -224,6 +224,25 @@ describe("RotationClassifyControl", () => {
       );
     });
 
+    it("reports a picked bin as unsaved until it is set", async () => {
+      fakeRotationEndpoints([], { buildRow: buildJuanaMolinaRow });
+      const onUnsavedChange = vi.fn();
+      const { user } = renderWithProviders(
+        inModernTheme(
+          <RotationClassifyControl album={juanaMolinaAlbum()} onUnsavedChange={onUnsavedChange} />,
+        ),
+      );
+
+      await screen.findByRole("group", { name: "Rotation bin" });
+      expect(onUnsavedChange).not.toHaveBeenCalledWith(true);
+      await user.click(screen.getByRole("checkbox", { name: "Heavy rotation" }));
+      expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+
+      await user.click(screen.getByRole("button", { name: "Set Rotation" }));
+
+      await waitFor(() => expect(onUnsavedChange).toHaveBeenLastCalledWith(false));
+    });
+
     // The control's headline behavior. Without this the wiring is only covered
     // by the hook's own unit test, so passing `[]` instead of `activeEntries`
     // from this surface would leave every test in this file green while

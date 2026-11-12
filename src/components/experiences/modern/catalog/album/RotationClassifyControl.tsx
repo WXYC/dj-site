@@ -8,10 +8,13 @@ import { useAlbumRotationActions } from "./useAlbumRotationActions";
 import { Rotation } from "@/lib/features/rotation/types";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import FormSectionCard from "@/src/components/shared/FormSectionCard";
+import { useReportUnsaved } from "./useReportUnsaved";
 import CatalogRotationBinPicker from "@/src/components/experiences/modern/catalog/CatalogRotationBinPicker";
 
 interface RotationClassifyControlProps {
   album: AlbumEntry;
+  /** Called with whether a bin is picked but not yet set. */
+  onUnsavedChange?: (unsaved: boolean) => void;
 }
 
 /**
@@ -26,11 +29,11 @@ interface RotationClassifyControlProps {
  * query the active-entries list is derived from — run only for an authorized
  * viewer. Everyone else renders nothing and issues no request.
  */
-function RotationClassifyControl({ album }: RotationClassifyControlProps) {
+function RotationClassifyControl({ album, onUnsavedChange }: RotationClassifyControlProps) {
   return (
     <RequireMD>
-      <FormSectionCard title="Rotation" data-testid="rotation-section-card">
-        <RotationClassifyFields album={album} />
+      <FormSectionCard data-testid="rotation-section-card">
+        <RotationClassifyFields album={album} onUnsavedChange={onUnsavedChange} />
       </FormSectionCard>
     </RequireMD>
   );
@@ -40,7 +43,7 @@ function RotationClassifyControl({ album }: RotationClassifyControlProps) {
  * Mount with `key={album.id}` from the caller so an in-progress bin pick
  * doesn't leak into the next album.
  */
-function RotationClassifyFields({ album }: RotationClassifyControlProps) {
+function RotationClassifyFields({ album, onUnsavedChange }: RotationClassifyControlProps) {
   // The album-detail read (`GET /library/info`) joins no rotation table and
   // selects no rotation columns, so `album.rotation_id` is always undefined
   // here — whether the album is in rotation is only answerable from the
@@ -57,6 +60,7 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
     useAlbumRotationActions(album);
 
   const [selectedBin, setSelectedBin] = useState<Rotation | null>(null);
+  useReportUnsaved(selectedBin !== null, onUnsavedChange);
 
   // `setRotation`'s add step invalidates the rotation list, and this
   // control's state only flips once that refetch lands, so `busy` stays true
