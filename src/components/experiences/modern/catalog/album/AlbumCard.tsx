@@ -7,6 +7,7 @@ import { AlbumMetadata, ResolvedToken } from "@/lib/features/metadata/types";
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import {
   Box,
+  Button,
   Card,
   CardContent,
   CardOverflow,
@@ -20,6 +21,7 @@ import {
 import { useRef, useState, useEffect } from "react";
 import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
 import ReviewsPanel from "@/src/components/experiences/modern/reviews/ReviewsPanel";
+import { RequireMD } from "@/src/components/shared/Authorization";
 import AlbumArtworkWithRotationBadge from "./AlbumArtworkWithRotationBadge";
 import AlbumEditForm from "./AlbumEditForm";
 import CompilationCreditsControl from "./CompilationCreditsControl";
@@ -40,6 +42,11 @@ interface AlbumCardProps {
   artistWikipediaUrl: string | null;
 }
 
+/**
+ * A release's details card on the modern experience. It opens read-only for
+ * every account; MD+ accounts get an Edit button that reveals the release's
+ * edit controls and a Done button that hides them again.
+ */
 export default function AlbumCard({
   album,
   artworkUrl,
@@ -52,6 +59,14 @@ export default function AlbumCard({
   const [bioExpanded, setBioExpanded] = useState(false);
   const [bioOverflows, setBioOverflows] = useState(false);
   const bioRef = useRef<HTMLDivElement>(null);
+
+  // Edit mode is recorded against the album it was opened for, so showing a
+  // different release (the card is not remounted between albums) reads as
+  // view mode on that very render instead of flashing the edit controls.
+  const [editing, setEditing] = useState<
+    { forAlbumId: AlbumEntry["id"] } | null
+  >(null);
+  const isEditing = editing !== null && editing.forAlbumId === album.id;
 
   useEffect(() => {
     const el = bioRef.current;
@@ -174,11 +189,31 @@ export default function AlbumCard({
             <LibraryStatus album={album} />
           </Stack>
         </Stack>
-        {/* Keyed per album so drafts reset when the album changes; prefixes keep sibling keys unique. */}
-        <DiscogsUnavailableControl key={`discogs-${album.id}`} album={album} />
-        <AlbumEditForm key={`edit-${album.id}`} album={album} />
-        <RotationClassifyControl key={`rotation-${album.id}`} album={album} />
-        <CompilationCreditsControl key={`credits-${album.id}`} album={album} />
+        {/* UI only: Backend-Service enforces the MD tier on every write, and
+            each control keeps its own RequireMD gate. */}
+        <RequireMD>
+          <Stack direction="row" sx={{ justifyContent: "flex-end", mb: 1 }}>
+            <Button
+              size="sm"
+              variant="outlined"
+              color="neutral"
+              onClick={() => {
+                setEditing(isEditing ? null : { forAlbumId: album.id });
+              }}
+            >
+              {isEditing ? "Done" : "Edit"}
+            </Button>
+          </Stack>
+        </RequireMD>
+        {isEditing && (
+          <>
+            {/* Keyed per album so drafts reset when the album changes; prefixes keep sibling keys unique. */}
+            <DiscogsUnavailableControl key={`discogs-${album.id}`} album={album} />
+            <AlbumEditForm key={`edit-${album.id}`} album={album} />
+            <RotationClassifyControl key={`rotation-${album.id}`} album={album} />
+            <CompilationCreditsControl key={`credits-${album.id}`} album={album} />
+          </>
+        )}
         {(definitiveUrls?.length || !isDiscogsUnavailable) && (
           <StreamingLinks
             metadata={metadata}

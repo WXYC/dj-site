@@ -191,12 +191,11 @@ describe("AlbumCard discogsUnavailable gate", () => {
     expect(screen.queryByRole("link", { name: "Discogs" })).not.toBeInTheDocument();
   });
 
-  it("still renders library-owned info: title, LibraryStatus, and the MD control", () => {
+  it("still renders library-owned info: title and LibraryStatus", () => {
     renderWithProviders(<AlbumCard album={flaggedAlbum} {...defaultProps} />);
 
     expect(screen.getByText(/Edits/)).toBeInTheDocument();
     expect(screen.getByText("mocked status")).toBeInTheDocument();
-    expect(screen.getByText("mocked discogs-unavailable control")).toBeInTheDocument();
   });
 });
 
