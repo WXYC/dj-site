@@ -18,7 +18,7 @@ import {
   Stack,
   Typography,
 } from "@mui/joy";
-import { useId, useRef, useState, useEffect } from "react";
+import { useCallback, useId, useRef, useState, useEffect } from "react";
 import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
 import ReviewsPanel from "@/src/components/experiences/modern/reviews/ReviewsPanel";
 import { RequireMD } from "@/src/components/shared/Authorization";
@@ -29,7 +29,6 @@ import DiscogsMarkup from "./DiscogsMarkupRenderer";
 import LibraryStatus from "./LibraryStatus";
 import StreamingLinks from "./StreamingLinks";
 import Tracklist from "./Tracklist";
-import { useReportUnsaved } from "./useReportUnsaved";
 
 interface AlbumCardProps {
   album: AlbumEntry;
@@ -69,12 +68,18 @@ export default function AlbumCard({
   const [editorUnsaved, setEditorUnsaved] = useState(false);
   const [confirmingClose, setConfirmingClose] = useState(false);
   const editorId = useId();
-  useReportUnsaved(editorUnsaved, onUnsavedChange);
+  const reportEditorUnsaved = useCallback(
+    (unsaved: boolean) => {
+      setEditorUnsaved(unsaved);
+      onUnsavedChange?.(unsaved);
+    },
+    [onUnsavedChange],
+  );
 
   // The editor reports nothing once unmounted, so its last report is cleared here.
   const closeEditor = () => {
     setConfirmingClose(false);
-    setEditorUnsaved(false);
+    reportEditorUnsaved(false);
     setIsEditing(false);
   };
 
@@ -243,7 +248,7 @@ export default function AlbumCard({
             id={editorId}
             album={album}
             tracklist={tracklist}
-            onUnsavedChange={setEditorUnsaved}
+            onUnsavedChange={reportEditorUnsaved}
           />
         ) : (
           <>
