@@ -97,6 +97,11 @@ export default function AlbumPopup() {
   const unsaved = open && showsCard && unsavedFor === albumId;
   const leaveGuard = useLeaveGuard(unsaved);
   const [confirmingClose, setConfirmingClose] = useState(false);
+  // Back is not guarded and this slot outlives the album it showed, so a question
+  // left open by a Back is dropped once nothing is unsaved, not carried to the next release.
+  if (confirmingClose && !unsaved) {
+    setConfirmingClose(false);
+  }
 
   const close = () => {
     if (unsaved) {
@@ -111,7 +116,6 @@ export default function AlbumPopup() {
   };
   const discard = () => {
     setConfirmingClose(false);
-    setUnsavedFor(null);
     if (leaveGuard.pending) {
       leaveGuard.leave();
     } else {

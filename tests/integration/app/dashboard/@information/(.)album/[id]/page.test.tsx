@@ -304,5 +304,63 @@ describe("AlbumPopup — permalinkable album modal (#979)", () => {
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
       expect(mockBack).toHaveBeenCalledTimes(1);
     });
+
+    // RTK Query keeps the previous release's data while the next one loads, so the old card and its draft stay on screen.
+    it("keeps asking while the previous release's card is still shown, and forgets once the next one arrives", () => {
+      const { rerender } = renderWithDraft("Sonamos");
+      mockParams.mockReturnValue({ id: "43" });
+      mockPathname.mockReturnValue("/dashboard/album/43");
+      mockUseGetInformationQuery.mockReturnValue({ ...foundAlbum, isFetching: true });
+      rerender(<AlbumPopup />);
+      fireEvent.click(screen.getByLabelText("Close album detail"));
+      fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+
+      mockUseGetInformationQuery.mockReturnValue({
+        data: { id: 43, title: "On Your Own Love Again", artist: { name: "Jessica Pratt" } },
+        isLoading: false,
+        isError: false,
+      });
+      rerender(<AlbumPopup />);
+      fireEvent.click(screen.getByLabelText("Close album detail"));
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(mockBack).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps asking when Discard on a link has not moved the route yet", async () => {
+      renderWithDraft("Sonamos");
+      fireEvent.click(screen.getByRole("link", { name: "Next release" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Discard changes" }));
+      expect(screen.getByLabelText("Draft")).toHaveValue("Sonamos");
+      fireEvent.click(screen.getByLabelText("Close album detail"));
+      expect(await screen.findByRole("alertdialog", { name: "Discard unsaved changes?" })).toBeInTheDocument();
+    });
+
+    // The browser's Back is not guarded, so it can leave with the question still open; this slot stays mounted for the next release.
+    it("does not carry an open question to the next release after Back", () => {
+      const { rerender } = renderWithDraft("Sonamos");
+      fireEvent.click(screen.getByLabelText("Close album detail"));
+      expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+
+      window.history.pushState({}, "", "/dashboard/catalog");
+      try {
+        fireEvent(window, new PopStateEvent("popstate"));
+        mockPathname.mockReturnValue("/dashboard/catalog");
+        rerender(<AlbumPopup />);
+        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+
+        mockParams.mockReturnValue({ id: "43" });
+        mockPathname.mockReturnValue("/dashboard/album/43");
+        mockUseGetInformationQuery.mockReturnValue({
+          data: { id: 43, title: "On Your Own Love Again", artist: { name: "Jessica Pratt" } },
+          isLoading: false,
+          isError: false,
+        });
+        rerender(<AlbumPopup />);
+        fireEvent.change(screen.getByLabelText("Draft"), { target: { value: "Drag City" } });
+        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      } finally {
+        window.history.pushState({}, "", "/");
+      }
+    });
   });
 });
