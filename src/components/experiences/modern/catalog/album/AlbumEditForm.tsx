@@ -93,6 +93,41 @@ function snapshotFromAlbum(album: AlbumEntry): SavedFields {
   };
 }
 
+/** What the form was last seeded from: the saved fields plus the artist's display name and code letters, which the link needs. */
+type Seed = { fields: SavedFields; artistName: string; codeLetters: string };
+
+function seedFromAlbum(album: AlbumEntry): Seed {
+  return {
+    fields: snapshotFromAlbum(album),
+    artistName: album.artist.name,
+    codeLetters: album.artist.lettercode,
+  };
+}
+
+function sameSeed(a: Seed, b: Seed): boolean {
+  const keys = Object.keys(a.fields) as (keyof SavedFields)[];
+  return (
+    a.artistName === b.artistName &&
+    a.codeLetters === b.codeLetters &&
+    keys.every((key) => a.fields[key] === b.fields[key])
+  );
+}
+
+/**
+ * The link's id while it still describes the form: resolved under the genre
+ * in effect and for the name in the field. Otherwise undefined.
+ */
+function liveArtistId(
+  link: ArtistLink | null,
+  genreId: number | undefined,
+  name: string,
+): number | undefined {
+  if (link === null || link.genreId !== genreId || link.name.trim() !== name.trim()) {
+    return undefined;
+  }
+  return link.id;
+}
+
 function artistLinkFrom(saved: SavedFields, name: string, codeLetters: string): ArtistLink | null {
   return saved.artistId === undefined
     ? null
@@ -102,9 +137,9 @@ function artistLinkFrom(saved: SavedFields, name: string, codeLetters: string): 
 /**
  * MD+ general catalog edit form: batches title/label/genre/format/artist-link/
  * alternate-artist-name/disc-quantity edits into one `PATCH /library/:id`
- * carrying only the changed fields. Mount with `key={album.id}` from the
- * caller, alongside `DiscogsUnavailableControl` — local state is seeded from
- * `album` on mount only, matching that control's pattern.
+ * carrying only the changed fields. Mount once per release (the release card
+ * is keyed by album): the drafts belong to one release. Within a release, a
+ * refreshed `album` replaces every field that holds no draft.
  *
  * One Save button rather than per-field auto-save: artist rows are
  * genre-scoped, so a genre change has to retract a stale `artist_id` in the
@@ -165,6 +200,45 @@ function AlbumEditFormFields({ album, onUnsavedChange }: AlbumEditFormProps) {
   // fallback is never judged against a value it was never searched under.
   const resolvedGenreId = genreId ?? saved.genreId;
 
+  // The editor can open on a copy of the release that predates a save made
+  // moments ago, and the refetch then arrives as a new `album`. Each field
+  // still on its saved value takes the refreshed one; a field holding a draft
+  // keeps it and is judged against the refreshed baseline. Adjusted during
+  // render so no frame shows the stale values.
+  const incoming = seedFromAlbum(album);
+  const [seededFrom, setSeededFrom] = useState(incoming);
+  if (!sameSeed(seededFrom, incoming)) {
+    const next = incoming.fields;
+    setSeededFrom(incoming);
+    setSaved(next);
+    if (title.trim() === saved.title) {
+      setTitle(next.title);
+    }
+    if (label.trim() === saved.label) {
+      setLabel(next.label);
+    }
+    if (resolvedGenreId === saved.genreId) {
+      setGenreId(next.genreId);
+    }
+    if ((formatId ?? saved.formatId) === saved.formatId) {
+      setFormatId(next.formatId);
+    }
+    if (alternateArtistName.trim() === saved.alternateArtistName) {
+      setAlternateArtistName(next.alternateArtistName);
+    }
+    if (albumArtist.trim() === saved.albumArtist) {
+      setAlbumArtist(next.albumArtist);
+    }
+    if (discQuantity === saved.discQuantity) {
+      setDiscQuantity(next.discQuantity);
+    }
+    // A live link to the saved artist means the field still names that artist.
+    if (liveArtistId(artistLink, resolvedGenreId, artistName) === saved.artistId) {
+      setArtistName(incoming.artistName);
+      setArtistLink(artistLinkFrom(next, incoming.artistName, incoming.codeLetters));
+    }
+  }
+
   const handleArtistSelect = (artist: ArtistInGenreOption) => {
     setArtistLink({
       id: artist.id,
@@ -211,12 +285,7 @@ function AlbumEditFormFields({ album, onUnsavedChange }: AlbumEditFormProps) {
   // the shelf, since the server can burn a fresh call number for it.
   const artistLinkStaleForGenre =
     artistLink !== null && artistLink.genreId !== resolvedGenreId;
-  const artistLinkStaleForName =
-    artistLink !== null && artistLink.name.trim() !== artistName.trim();
-  const artistId =
-    artistLink === null || artistLinkStaleForGenre || artistLinkStaleForName
-      ? undefined
-      : artistLink.id;
+  const artistId = liveArtistId(artistLink, resolvedGenreId, artistName);
 
   // Backend-Service rejects an empty album_title outright (400), so an empty
   // draft must block Save rather than reach the request at all. The length caps

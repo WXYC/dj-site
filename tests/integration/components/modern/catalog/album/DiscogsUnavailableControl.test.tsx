@@ -164,6 +164,46 @@ describe("DiscogsUnavailableControl", () => {
 
   });
 
+  // The card can reopen the editor on a copy of the release that predates a
+  // save made moments ago; the refetch then arrives as a new `album`.
+  describe("a refreshed album", () => {
+    beforeEach(() => {
+      mockFetchOrgRole.mockResolvedValue("musicDirector");
+      mockUseSession.mockReturnValue(sessionWithRole());
+    });
+
+    it("shows the refreshed flag and reason", async () => {
+      const { rerender } = renderWithProviders(
+        <DiscogsUnavailableControl album={juanaMolinaAlbum()} />,
+      );
+      expect(await screen.findByLabelText("Not on Discogs")).not.toBeChecked();
+
+      rerender(
+        <DiscogsUnavailableControl
+          album={juanaMolinaAlbum({ discogsUnavailable: true, discogsUnavailableNote: "embargoed" })}
+        />,
+      );
+
+      expect(screen.getByLabelText("Not on Discogs")).toBeChecked();
+      expect(screen.getByLabelText("Reason (optional)")).toHaveValue("embargoed");
+      expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    });
+
+    it("keeps a reason being typed over the refreshed one", async () => {
+      const flagged = (note: string) =>
+        juanaMolinaAlbum({ discogsUnavailable: true, discogsUnavailableNote: note });
+      const { user, rerender } = renderWithProviders(
+        <DiscogsUnavailableControl album={flagged("old reason")} />,
+      );
+      await user.type(await screen.findByLabelText("Reason (optional)"), " updated");
+
+      rerender(<DiscogsUnavailableControl album={flagged("embargoed")} />);
+
+      expect(screen.getByLabelText("Reason (optional)")).toHaveValue("old reason updated");
+      expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    });
+  });
+
   describe("toggling the flag", () => {
     beforeEach(() => {
       mockFetchOrgRole.mockResolvedValue("musicDirector");

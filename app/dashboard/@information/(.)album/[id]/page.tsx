@@ -96,7 +96,11 @@ export default function AlbumPopup() {
         ) : isError || !data ? (
           <AlbumErrorCard />
         ) : (
+          // Keyed per album: this slot stays mounted while the route moves
+          // between albums, and the card's local state (edit mode, an expanded
+          // bio, every draft) belongs to one release.
           <AlbumCard
+            key={data.id}
             album={data as AlbumEntry}
             artworkUrl={artworkUrl}
             metadata={metadata}

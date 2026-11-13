@@ -40,8 +40,8 @@ function RotationClassifyControl({ album, onUnsavedChange }: RotationClassifyCon
 }
 
 /**
- * Mount with `key={album.id}` from the caller so an in-progress bin pick
- * doesn't leak into the next album.
+ * Mounted once per release (the release card is keyed by album), so an
+ * in-progress bin pick doesn't leak into the next album.
  */
 function RotationClassifyFields({ album, onUnsavedChange }: RotationClassifyControlProps) {
   // The album-detail read (`GET /library/info`) joins no rotation table and

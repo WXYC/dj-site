@@ -316,6 +316,56 @@ describe("AlbumEditForm", () => {
       });
     });
 
+    // The card can reopen the editor on a copy of the release that predates a
+    // save made moments ago; the refetch then arrives as a new `album`.
+    describe("a refreshed album", () => {
+      it("shows the refreshed values in every field that holds no draft", async () => {
+        const { rerender } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+        await screen.findByLabelText("Title");
+
+        rerender(
+          <AlbumEditForm
+            album={juanaMolinaAlbum({
+              title: "DOGA (Reissue)",
+              label: "Crammed Discs",
+              disc_quantity: 2,
+              album_artist: "Juana Molina",
+              format_id: VINYL_FORMAT_ID,
+            })}
+          />,
+        );
+
+        expect(screen.getByLabelText("Title")).toHaveValue("DOGA (Reissue)");
+        expect(screen.getByLabelText("Label")).toHaveValue("Crammed Discs");
+        expect(screen.getByLabelText("Disc Quantity")).toHaveValue(2);
+        expect(screen.getByLabelText("Album Artist")).toHaveValue("Juana Molina");
+        await waitFor(() =>
+          expect(screen.getByRole("combobox", { name: "Format" })).toHaveTextContent("Vinyl"),
+        );
+        expect(screen.getByRole("button", SAVE_BUTTON)).toBeDisabled();
+      });
+
+      it("keeps a draft over the refreshed value of its own field", async () => {
+        const onUnsavedChange = vi.fn();
+        const { user, rerender } = renderWithProviders(
+          <AlbumEditForm album={juanaMolinaAlbum()} onUnsavedChange={onUnsavedChange} />,
+        );
+        await user.type(await screen.findByLabelText("Label"), " Records");
+
+        rerender(
+          <AlbumEditForm
+            album={juanaMolinaAlbum({ title: "DOGA (Reissue)", label: "Crammed Discs" })}
+            onUnsavedChange={onUnsavedChange}
+          />,
+        );
+
+        expect(screen.getByLabelText("Title")).toHaveValue("DOGA (Reissue)");
+        expect(screen.getByLabelText("Label")).toHaveValue("Sonamos Records");
+        expect(screen.getByRole("button", SAVE_BUTTON)).toBeEnabled();
+        expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+      });
+    });
+
     describe("reporting unsaved changes", () => {
       // An invalid draft is still unsaved work: it sends nothing, but leaving
       // the tab must not make it look as though nothing was typed.
