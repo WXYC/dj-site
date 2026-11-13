@@ -18,7 +18,9 @@ import {
   Stack,
   Typography,
 } from "@mui/joy";
-import { useRef, useState, useEffect } from "react";
+import { useId, useRef, useState, useEffect } from "react";
+import { WarningRounded } from "@mui/icons-material";
+import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
 import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
 import ReviewsPanel from "@/src/components/experiences/modern/reviews/ReviewsPanel";
 import { RequireMD } from "@/src/components/shared/Authorization";
@@ -42,7 +44,10 @@ interface AlbumCardProps {
 /**
  * A release's details card on the modern experience. It opens read-only for
  * every account; MD+ accounts get an Edit button that swaps the card's body
- * below the header for the tabbed editor, and a Done button that swaps it back.
+ * below the header for the tabbed editor, and a Close editor button that swaps
+ * it back, asking first when a tab holds unsaved changes. Mount with
+ * `key={album.id}`: edit mode, the bio's Read More and every draft belong to
+ * one release.
  */
 export default function AlbumCard({
   album,
@@ -57,13 +62,17 @@ export default function AlbumCard({
   const [bioOverflows, setBioOverflows] = useState(false);
   const bioRef = useRef<HTMLDivElement>(null);
 
-  // Edit mode is recorded against the album it was opened for, so showing a
-  // different release (the card is not remounted between albums) reads as
-  // view mode on that very render instead of flashing the edit controls.
-  const [editing, setEditing] = useState<
-    { forAlbumId: AlbumEntry["id"] } | null
-  >(null);
-  const isEditing = editing !== null && editing.forAlbumId === album.id;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editorUnsaved, setEditorUnsaved] = useState(false);
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  const editorId = useId();
+
+  // The editor reports nothing once unmounted, so its last report is cleared here.
+  const closeEditor = () => {
+    setConfirmingClose(false);
+    setEditorUnsaved(false);
+    setIsEditing(false);
+  };
 
   useEffect(() => {
     const el = bioRef.current;
@@ -204,16 +213,52 @@ export default function AlbumCard({
               size="sm"
               variant="outlined"
               color="neutral"
+              aria-expanded={isEditing}
+              aria-controls={isEditing ? editorId : undefined}
               onClick={() => {
-                setEditing(isEditing ? null : { forAlbumId: album.id });
+                if (!isEditing) {
+                  setIsEditing(true);
+                } else if (editorUnsaved) {
+                  setConfirmingClose(true);
+                } else {
+                  closeEditor();
+                }
               }}
             >
-              {isEditing ? "Done" : "Edit"}
+              {isEditing ? "Close editor" : "Edit"}
             </Button>
           </Stack>
         </RequireMD>
+        <ConfirmDialog
+          open={confirmingClose}
+          onClose={() => setConfirmingClose(false)}
+          title={
+            <>
+              <WarningRounded />
+              Discard unsaved changes?
+            </>
+          }
+          titleId="album-editor-discard-title"
+          actions={
+            <>
+              <Button variant="solid" color="warning" onClick={closeEditor}>
+                Discard changes
+              </Button>
+              <Button variant="plain" color="neutral" autoFocus onClick={() => setConfirmingClose(false)}>
+                Keep editing
+              </Button>
+            </>
+          }
+        >
+          Your changes since the last save will be lost.
+        </ConfirmDialog>
         {isEditing ? (
-          <AlbumEditTabs key={album.id} album={album} tracklist={tracklist} />
+          <AlbumEditTabs
+            id={editorId}
+            album={album}
+            tracklist={tracklist}
+            onUnsavedChange={setEditorUnsaved}
+          />
         ) : (
           <>
             {(definitiveUrls?.length || !isDiscogsUnavailable) && (
@@ -264,7 +309,6 @@ export default function AlbumCard({
             )}
             {album.id != null && (
               <ReviewsPanel
-                key={`reviews-${album.id}`}
                 albumId={album.id}
                 record={{ artist: displayedArtist(album.alternate_artist, album.artist.name, isVariousArtists(album.artist.lettercode)), album: album.title, label: album.label ?? "" }}
               />

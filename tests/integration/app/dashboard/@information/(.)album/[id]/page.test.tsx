@@ -28,10 +28,25 @@ vi.mock("@/lib/features/metadata/hooks", () => ({
 }));
 
 // Stub the content cards so the test asserts branch selection without pulling
-// in AlbumCard's own data dependencies.
-vi.mock("@/src/components/experiences/modern/catalog/album/AlbumCard", () => ({
-  default: () => <div data-testid="album-card" />,
-}));
+// in AlbumCard's own data dependencies. The card stub holds a toggle of its own
+// standing in for the card's local state (edit mode, an expanded bio), so a
+// test can tell a remount from a re-render.
+vi.mock("@/src/components/experiences/modern/catalog/album/AlbumCard", async () => {
+  const { useState } = await import("react");
+  return {
+    default: function AlbumCardStub({ album }: { album: { title: string } }) {
+      const [editing, setEditing] = useState(false);
+      return (
+        <div data-testid="album-card">
+          {album.title}
+          <button type="button" onClick={() => setEditing(true)}>
+            {editing ? "editing" : "Edit"}
+          </button>
+        </div>
+      );
+    },
+  };
+});
 vi.mock("@/src/components/experiences/modern/catalog/album/AlbumErrorCard", () => ({
   default: () => <div data-testid="album-error" />,
 }));
@@ -148,5 +163,31 @@ describe("AlbumPopup — permalinkable album modal (#979)", () => {
     mockPathname.mockReturnValue("/dashboard/catalog");
     renderWithProviders(<AlbumPopup />);
     expect(screen.queryByLabelText("Close album detail")).not.toBeInTheDocument();
+  });
+
+  // The intercepted slot stays mounted while the route moves between albums,
+  // so the card is remounted per album or its local state (edit mode, an
+  // expanded bio) would follow the MD to the next release and back again.
+  it("starts each album's card afresh, including on the way back to an album", () => {
+    const molina = { data: { id: 42, title: "DOGA", artist: { name: "Juana Molina" } }, isLoading: false, isError: false };
+    const pratt = { data: { id: 43, title: "On Your Own Love Again", artist: { name: "Jessica Pratt" } }, isLoading: false, isError: false };
+    mockUseGetInformationQuery.mockReturnValue(molina);
+    const { rerender } = renderWithProviders(<AlbumPopup />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByRole("button", { name: "editing" })).toBeInTheDocument();
+
+    mockParams.mockReturnValue({ id: "43" });
+    mockPathname.mockReturnValue("/dashboard/album/43");
+    mockUseGetInformationQuery.mockReturnValue(pratt);
+    rerender(<AlbumPopup />);
+    expect(screen.getByTestId("album-card")).toHaveTextContent("On Your Own Love Again");
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+
+    mockParams.mockReturnValue({ id: "42" });
+    mockPathname.mockReturnValue("/dashboard/album/42");
+    mockUseGetInformationQuery.mockReturnValue(molina);
+    rerender(<AlbumPopup />);
+    expect(screen.getByTestId("album-card")).toHaveTextContent("DOGA");
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
   });
 });

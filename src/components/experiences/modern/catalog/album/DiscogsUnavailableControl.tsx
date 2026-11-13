@@ -28,10 +28,10 @@ interface DiscogsUnavailableControlProps {
 
 /**
  * MD+ control for the "Not on Discogs" flag: flips `discogsUnavailable` and
- * an optional free-text reason via `PATCH /library/:id`. Mount with
- * `key={album.id}` from the caller — local state is seeded from `album` on
- * mount only, so switching albums without a remount would leak the prior
- * album's draft note.
+ * an optional free-text reason via `PATCH /library/:id`. Mount once per
+ * release (the release card is keyed by album): the draft note belongs to one
+ * release. Within a release, a refreshed `album` replaces the flag and any
+ * reason that holds no draft.
  */
 function DiscogsUnavailableControl({ album, onUnsavedChange }: DiscogsUnavailableControlProps) {
   const [updateAlbum] = useUpdateAlbumMutation();
@@ -41,6 +41,24 @@ function DiscogsUnavailableControl({ album, onUnsavedChange }: DiscogsUnavailabl
   const [note, setNote] = useState(album.discogsUnavailableNote ?? "");
   const [savedNote, setSavedNote] = useState(album.discogsUnavailableNote ?? "");
   const [notePending, setNotePending] = useState(false);
+
+  // The editor can open on a copy of the release that predates a save made
+  // moments ago, and the refetch then arrives as a new `album`. Adjusted during
+  // render so no frame shows the stale values. A flag write in flight keeps
+  // its optimistic value, and a reason being typed keeps its draft.
+  const incomingFlag = album.discogsUnavailable ?? false;
+  const incomingNote = album.discogsUnavailableNote ?? "";
+  const [seededFrom, setSeededFrom] = useState({ flag: incomingFlag, note: incomingNote });
+  if (seededFrom.flag !== incomingFlag || seededFrom.note !== incomingNote) {
+    setSeededFrom({ flag: incomingFlag, note: incomingNote });
+    if (!flagPending) {
+      setFlag(incomingFlag);
+    }
+    if (note.trim() === savedNote.trim()) {
+      setNote(incomingNote);
+    }
+    setSavedNote(incomingNote);
+  }
 
   const trimmedNote = note.trim();
   const noteChanged = trimmedNote !== (savedNote ?? "").trim();

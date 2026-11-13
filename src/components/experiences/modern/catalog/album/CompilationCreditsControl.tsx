@@ -77,8 +77,8 @@ export default function CompilationCreditsControl({
 }
 
 /**
- * Mount with `key={album.id}` from the caller so a half-entered tracklist
- * doesn't leak into the next album.
+ * Mounted once per release (the release card is keyed by album), so a
+ * half-entered tracklist doesn't leak into the next album.
  */
 function CompilationCreditsFields({
   libraryId,

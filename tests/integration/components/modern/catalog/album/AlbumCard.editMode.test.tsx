@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import {
   renderWithProviders,
   createTestAlbum,
   createTestArtist,
 } from "@/tests/helpers";
 import AlbumCard from "@/src/components/experiences/modern/catalog/album/AlbumCard";
+import { RequireDJ } from "@/src/components/shared/Authorization";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: { useSession: vi.fn() },
@@ -144,11 +145,6 @@ function signInAs(role: string) {
   });
 }
 
-async function settleRole() {
-  await waitFor(() => expect(mockFetchOrgRole).toHaveBeenCalled());
-  await mockFetchOrgRole.mock.results[0].value;
-}
-
 function expectNoEditControls() {
   expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   for (const tab of ALL_TABS) {
@@ -179,15 +175,22 @@ describe("AlbumCard view/edit mode", () => {
     { role: "stationManager", canEdit: true },
   ])("opens read-only for $role (Edit button shown: $canEdit)", async ({ role, canEdit }) => {
     signInAs(role);
-    renderWithProviders(<AlbumCard album={doga} {...defaultProps} />);
-    await settleRole();
+    // Shown to every signed-in tier once the role has resolved, so its presence
+    // proves the card's own gate has decided before Edit's absence is asserted.
+    renderWithProviders(
+      <>
+        <AlbumCard album={doga} {...defaultProps} />
+        <RequireDJ>
+          <span>role resolved</span>
+        </RequireDJ>
+      </>,
+    );
+    await screen.findByText("role resolved");
 
     if (canEdit) {
-      expect(await screen.findByRole("button", { name: "Edit" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
     } else {
-      await waitFor(() =>
-        expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument(),
-      );
+      expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     }
     expectNoEditControls();
     expect(screen.getByText("mocked tracklist")).toBeInTheDocument();
@@ -259,33 +262,92 @@ describe("AlbumCard view/edit mode", () => {
     expect(screen.getByRole("tab", { name: tab })).toBeInTheDocument();
   });
 
-  it("returns to the read-only card on Done, and reopens on Details with no drafts", async () => {
+  it("returns to the read-only card on Close editor, and reopens on Details", async () => {
     const { user } = await openEditor();
 
     await user.click(screen.getByRole("tab", { name: "Rotation" }));
-    await user.type(screen.getByLabelText("Rotation draft"), "H");
-    await user.click(screen.getByRole("button", { name: "Done" }));
+    await user.click(screen.getByRole("button", { name: "Close editor" }));
 
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expectNoEditControls();
     expect(screen.getByText("mocked tracklist")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Edit" }));
 
     expect(screen.getByRole("tab", { name: "Details" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "Rotation" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Rotation draft")).toHaveValue("");
   });
 
-  it("returns to the read-only card when a different release is shown", async () => {
-    const { user, rerender } = await openEditor();
+  it("closes without asking once every draft is saved", async () => {
+    const { user } = await openEditor();
+
+    await user.type(screen.getByLabelText("Details draft"), "x");
+    await user.click(screen.getByRole("button", { name: "Save Details" }));
+    await user.click(screen.getByRole("button", { name: "Close editor" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expectNoEditControls();
+  });
+
+  it("asks before closing over an unsaved draft, and keeps editing on request", async () => {
+    const { user } = await openEditor();
+
     await user.click(screen.getByRole("tab", { name: "Rotation" }));
     await user.type(screen.getByLabelText("Rotation draft"), "H");
+    await user.click(screen.getByRole("button", { name: "Close editor" }));
 
-    rerender(<AlbumCard album={onYourOwnLoveAgain} {...defaultProps} />);
+    const dialog = await screen.findByRole("alertdialog", { name: "Discard unsaved changes?" });
+    expect(within(dialog).getByRole("button", { name: "Keep editing" })).toHaveFocus();
 
+    await user.click(within(dialog).getByRole("button", { name: "Keep editing" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Rotation draft")).toHaveValue("H");
+    expect(screen.getByRole("tab", { name: "Rotation, unsaved changes" })).toBeInTheDocument();
+  });
+
+  it("discards the drafts and closes when asked to", async () => {
+    const { user } = await openEditor();
+
+    await user.click(screen.getByRole("tab", { name: "Rotation" }));
+    await user.type(screen.getByLabelText("Rotation draft"), "H");
+    await user.click(screen.getByRole("button", { name: "Close editor" }));
+    await user.click(await screen.findByRole("button", { name: "Discard changes" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expectNoEditControls();
-    await user.click(await screen.findByRole("button", { name: "Edit" }));
-    expect(screen.getByRole("tab", { name: "Details" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "Rotation" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByLabelText("Rotation draft")).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "Close editor" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expectNoEditControls();
+  });
+
+  it("tells assistive tech whether the editor is open and which region it controls", async () => {
+    signInAs("musicDirector");
+    const { user } = renderWithProviders(<AlbumCard album={doga} {...defaultProps} />);
+
+    const edit = await screen.findByRole("button", { name: "Edit" });
+    expect(edit).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(edit);
+
+    const close = screen.getByRole("button", { name: "Close editor" });
+    expect(close).toHaveAttribute("aria-expanded", "true");
+    const controlled = document.getElementById(close.getAttribute("aria-controls") ?? "");
+    expect(controlled).not.toBeNull();
+    expect(within(controlled!).getByRole("tablist")).toBeInTheDocument();
+  });
+
+  // The control is the only way to clear the flag, so a flagged release must
+  // still reach it.
+  it("reaches the Discogs availability control on a release flagged not on Discogs", async () => {
+    const { user } = await openEditor(
+      createTestAlbum({ ...doga, discogsUnavailable: true, discogsUnavailableNote: "embargoed" }),
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Discogs" }));
+
+    expect(screen.getByLabelText("Discogs draft")).toBeVisible();
   });
 });
