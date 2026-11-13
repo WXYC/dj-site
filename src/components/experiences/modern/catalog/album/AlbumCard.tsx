@@ -19,17 +19,17 @@ import {
   Typography,
 } from "@mui/joy";
 import { useId, useRef, useState, useEffect } from "react";
-import { WarningRounded } from "@mui/icons-material";
-import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
 import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
 import ReviewsPanel from "@/src/components/experiences/modern/reviews/ReviewsPanel";
 import { RequireMD } from "@/src/components/shared/Authorization";
 import AlbumArtworkWithRotationBadge from "./AlbumArtworkWithRotationBadge";
 import AlbumEditTabs from "./AlbumEditTabs";
+import DiscardChangesDialog from "./DiscardChangesDialog";
 import DiscogsMarkup from "./DiscogsMarkupRenderer";
 import LibraryStatus from "./LibraryStatus";
 import StreamingLinks from "./StreamingLinks";
 import Tracklist from "./Tracklist";
+import { useReportUnsaved } from "./useReportUnsaved";
 
 interface AlbumCardProps {
   album: AlbumEntry;
@@ -39,6 +39,8 @@ interface AlbumCardProps {
   artistBio: string | null;
   bioTokens: ResolvedToken[] | null;
   artistWikipediaUrl: string | null;
+  /** Called with whether the editor holds unsaved changes, so whatever hosts the card can ask before its own exits drop them. */
+  onUnsavedChange?: (unsaved: boolean) => void;
 }
 
 /**
@@ -57,6 +59,7 @@ export default function AlbumCard({
   artistBio,
   bioTokens,
   artistWikipediaUrl,
+  onUnsavedChange,
 }: AlbumCardProps) {
   const [bioExpanded, setBioExpanded] = useState(false);
   const [bioOverflows, setBioOverflows] = useState(false);
@@ -66,6 +69,7 @@ export default function AlbumCard({
   const [editorUnsaved, setEditorUnsaved] = useState(false);
   const [confirmingClose, setConfirmingClose] = useState(false);
   const editorId = useId();
+  useReportUnsaved(editorUnsaved, onUnsavedChange);
 
   // The editor reports nothing once unmounted, so its last report is cleared here.
   const closeEditor = () => {
@@ -229,29 +233,11 @@ export default function AlbumCard({
             </Button>
           </Stack>
         </RequireMD>
-        <ConfirmDialog
+        <DiscardChangesDialog
           open={confirmingClose}
-          onClose={() => setConfirmingClose(false)}
-          title={
-            <>
-              <WarningRounded />
-              Discard unsaved changes?
-            </>
-          }
-          titleId="album-editor-discard-title"
-          actions={
-            <>
-              <Button variant="solid" color="warning" onClick={closeEditor}>
-                Discard changes
-              </Button>
-              <Button variant="plain" color="neutral" autoFocus onClick={() => setConfirmingClose(false)}>
-                Keep editing
-              </Button>
-            </>
-          }
-        >
-          Your changes since the last save will be lost.
-        </ConfirmDialog>
+          onDiscard={closeEditor}
+          onKeepEditing={() => setConfirmingClose(false)}
+        />
         {isEditing ? (
           <AlbumEditTabs
             id={editorId}

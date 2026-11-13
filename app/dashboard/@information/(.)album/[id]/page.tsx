@@ -1,7 +1,7 @@
 "use client";
 
 import { Modal, ModalDialog, ModalClose } from "@mui/joy";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
 import { AlbumEntry } from "@/lib/features/catalog/types";
@@ -9,6 +9,8 @@ import { useAlbumArtwork, useArtistMetadata } from "@/lib/features/metadata/hook
 import AlbumCard from "@/src/components/experiences/modern/catalog/album/AlbumCard";
 import AlbumErrorCard from "@/src/components/experiences/modern/catalog/album/AlbumErrorCard";
 import AlbumLoadingCard from "@/src/components/experiences/modern/catalog/album/AlbumLoadingCard";
+import DiscardChangesDialog from "@/src/components/experiences/modern/catalog/album/DiscardChangesDialog";
+import { useLeaveGuard } from "@/src/hooks/useLeaveGuard";
 
 /**
  * Album detail as a permalinkable modal via the App Router intercepting-route
@@ -26,6 +28,13 @@ import AlbumLoadingCard from "@/src/components/experiences/modern/catalog/album/
  * path this route exists to serve — so we fall back to the dashboard home there.
  * The close affordance is a real `ModalClose` above the backdrop so tests (and
  * assistive tech) can click it directly.
+ *
+ * While the card's editor holds unsaved changes, the close button, the
+ * backdrop, Escape and any in-app link ask before the drafts go, and the
+ * browser is asked to confirm a reload or leaving the site. The browser's Back
+ * and Forward buttons, and a programmatic `router.push`, are not guarded: the
+ * App Router offers no way to hold a navigation, so they drop the drafts as
+ * before.
  *
  * This modal is the only album-detail surface: every in-app album click
  * navigates here, and the rightbar stays reserved for its resident content.
@@ -73,46 +82,90 @@ export default function AlbumPopup() {
 
   const { artistMetadata, bioTokens } = useArtistMetadata(metadata?.discogsArtistId);
 
+  // Kept per release, not as a bare flag: the card reports nothing when it
+  // unmounts, so a draft reported by one release's card must not make the next
+  // release (or its loading card) ask about changes already gone.
+  const [unsavedFor, setUnsavedFor] = useState<number | null>(null);
+  const albumId = data?.id;
+  const reportUnsaved = useCallback(
+    (unsaved: boolean) => setUnsavedFor(unsaved && albumId !== undefined ? albumId : null),
+    [albumId],
+  );
   // Gone when dismissed, after browser back, or once the URL leaves the album route.
-  if (dismissed || (pathname && !pathname.includes("/album/"))) {
+  const open = !dismissed && !(pathname && !pathname.includes("/album/"));
+  const showsCard = !isLoading && !isError && albumId !== undefined;
+  const unsaved = open && showsCard && unsavedFor === albumId;
+  const leaveGuard = useLeaveGuard(unsaved);
+  const [confirmingClose, setConfirmingClose] = useState(false);
+
+  const close = () => {
+    if (unsaved) {
+      setConfirmingClose(true);
+    } else {
+      dismiss();
+    }
+  };
+  const keepEditing = () => {
+    setConfirmingClose(false);
+    leaveGuard.stay();
+  };
+  const discard = () => {
+    setConfirmingClose(false);
+    setUnsavedFor(null);
+    if (leaveGuard.pending) {
+      leaveGuard.leave();
+    } else {
+      dismiss();
+    }
+  };
+
+  if (!open) {
     return null;
   }
 
   return (
-    <Modal
-      open={true}
-      onClose={dismiss}
-      sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}
-    >
-      <ModalDialog
-        aria-label="Album detail"
-        layout="center"
-        sx={{ maxWidth: "min(560px, 96vw)", width: "100%", p: 0, overflow: "auto" }}
+    <>
+      <Modal
+        open={true}
+        onClose={close}
+        sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}
       >
-        {/* Sits above the card content (Joy gives it z-index 1) so the card can't swallow clicks on this corner. */}
-        <ModalClose aria-label="Close album detail" sx={{ zIndex: 2 }} />
-        {isLoading ? (
-          <AlbumLoadingCard />
-        ) : isError || !data ? (
-          <AlbumErrorCard />
-        ) : (
-          // Keyed per album: this slot stays mounted while the route moves
-          // between albums, and the card's local state (edit mode, an expanded
-          // bio, every draft) belongs to one release.
-          <AlbumCard
-            key={data.id}
-            album={data as AlbumEntry}
-            artworkUrl={artworkUrl}
-            metadata={metadata}
-            metadataLoading={metadataLoading}
-            artistBio={artistMetadata?.bio ?? metadata?.artistBio ?? null}
-            bioTokens={bioTokens}
-            artistWikipediaUrl={
-              artistMetadata?.wikipediaUrl ?? metadata?.artistWikipediaUrl ?? null
-            }
-          />
-        )}
-      </ModalDialog>
-    </Modal>
+        <ModalDialog
+          aria-label="Album detail"
+          layout="center"
+          sx={{ maxWidth: "min(560px, 96vw)", width: "100%", p: 0, overflow: "auto" }}
+        >
+          {/* Sits above the card content (Joy gives it z-index 1) so the card can't swallow clicks on this corner. */}
+          <ModalClose aria-label="Close album detail" sx={{ zIndex: 2 }} />
+          {isLoading ? (
+            <AlbumLoadingCard />
+          ) : isError || !data ? (
+            <AlbumErrorCard />
+          ) : (
+            // Keyed per album: this slot stays mounted while the route moves
+            // between albums, and the card's local state (edit mode, an expanded
+            // bio, every draft) belongs to one release.
+            <AlbumCard
+              key={data.id}
+              album={data as AlbumEntry}
+              artworkUrl={artworkUrl}
+              metadata={metadata}
+              metadataLoading={metadataLoading}
+              artistBio={artistMetadata?.bio ?? metadata?.artistBio ?? null}
+              bioTokens={bioTokens}
+              artistWikipediaUrl={
+                artistMetadata?.wikipediaUrl ?? metadata?.artistWikipediaUrl ?? null
+              }
+              onUnsavedChange={reportUnsaved}
+            />
+          )}
+        </ModalDialog>
+      </Modal>
+      <DiscardChangesDialog
+        open={confirmingClose || leaveGuard.pending}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
+      />
+    </>
   );
 }
