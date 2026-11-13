@@ -323,6 +323,28 @@ describe("AlbumCard view/edit mode", () => {
     expectNoEditControls();
   });
 
+  // The modal around the card asks before its own exits, so it is told whether any tab is unsaved.
+  it("reports whether the editor holds an unsaved draft, through saving and discarding", async () => {
+    signInAs("musicDirector");
+    const onUnsavedChange = vi.fn();
+    const { user } = renderWithProviders(
+      <AlbumCard album={doga} {...defaultProps} onUnsavedChange={onUnsavedChange} />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(false);
+
+    await user.type(screen.getByLabelText("Details draft"), "x");
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+    await user.click(screen.getByRole("button", { name: "Save Details" }));
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(false);
+
+    await user.type(screen.getByLabelText("Details draft"), "y");
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+    await user.click(screen.getByRole("button", { name: "Close editor" }));
+    await user.click(await screen.findByRole("button", { name: "Discard changes" }));
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("tells assistive tech whether the editor is open and which region it controls", async () => {
     signInAs("musicDirector");
     const { user } = renderWithProviders(<AlbumCard album={doga} {...defaultProps} />);

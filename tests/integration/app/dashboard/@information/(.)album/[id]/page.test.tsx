@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent, within } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 
 const mockBack = vi.fn();
@@ -30,18 +30,47 @@ vi.mock("@/lib/features/metadata/hooks", () => ({
 // Stub the content cards so the test asserts branch selection without pulling
 // in AlbumCard's own data dependencies. The card stub holds a toggle of its own
 // standing in for the card's local state (edit mode, an expanded bio), so a
-// test can tell a remount from a re-render.
+// test can tell a remount from a re-render. Its draft reports through
+// `onUnsavedChange` the way the real card's editor does, and its link to
+// another release navigates the way next/link does, by preventing the
+// default and pushing.
 vi.mock("@/src/components/experiences/modern/catalog/album/AlbumCard", async () => {
   const { useState } = await import("react");
   return {
-    default: function AlbumCardStub({ album }: { album: { title: string } }) {
+    default: function AlbumCardStub({
+      album,
+      onUnsavedChange,
+    }: {
+      album: { title: string };
+      onUnsavedChange?: (unsaved: boolean) => void;
+    }) {
       const [editing, setEditing] = useState(false);
+      const [draft, setDraft] = useState("");
       return (
         <div data-testid="album-card">
           {album.title}
           <button type="button" onClick={() => setEditing(true)}>
             {editing ? "editing" : "Edit"}
           </button>
+          <input
+            aria-label="Draft"
+            value={draft}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              onUnsavedChange?.(e.target.value !== "");
+            }}
+          />
+          {/* next/link needs the App Router's context, which this test mocks away; the anchor stands in for its click. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a
+            href="/dashboard/album/43"
+            onClick={(e) => {
+              e.preventDefault();
+              mockPush("/dashboard/album/43");
+            }}
+          >
+            Next release
+          </a>
         </div>
       );
     },
@@ -189,5 +218,91 @@ describe("AlbumPopup — permalinkable album modal (#979)", () => {
     rerender(<AlbumPopup />);
     expect(screen.getByTestId("album-card")).toHaveTextContent("DOGA");
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+  describe("unsaved edits", () => {
+    const backdrop = () => document.querySelector(".MuiModal-backdrop") as HTMLElement;
+    const exits: [string, () => void][] = [
+      ["the close button", () => fireEvent.click(screen.getByLabelText("Close album detail"))],
+      ["a backdrop click", () => fireEvent.click(backdrop())],
+      ["Escape", () => fireEvent.keyDown(screen.getByRole("dialog", { name: "Album detail" }), { key: "Escape" })],
+      ["a link to another release", () => fireEvent.click(screen.getByRole("link", { name: "Next release" }))],
+    ];
+
+    function renderWithDraft(draft: string) {
+      mockUseGetInformationQuery.mockReturnValue(foundAlbum);
+      const view = renderWithProviders(<AlbumPopup />);
+      if (draft) {
+        fireEvent.change(screen.getByLabelText("Draft"), { target: { value: draft } });
+      }
+      return view;
+    }
+
+    const leftTheRelease = () => mockBack.mock.calls.length + mockPush.mock.calls.length > 0;
+
+    it.each(exits)("leaves without asking through %s when nothing is unsaved", (_, exit) => {
+      renderWithDraft("");
+      exit();
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(leftTheRelease()).toBe(true);
+    });
+
+    it.each(exits)("asks before %s drops an unsaved draft", async (_, exit) => {
+      renderWithDraft("Sonamos");
+      exit();
+      const dialog = await screen.findByRole("alertdialog", { name: "Discard unsaved changes?" });
+      expect(dialog).toHaveTextContent("Your changes since the last save will be lost.");
+      expect(within(dialog).getByRole("button", { name: "Keep editing" })).toHaveFocus();
+      expect(leftTheRelease()).toBe(false);
+    });
+
+    it.each(exits)("keeps the modal and the draft after Keep editing on %s", async (_, exit) => {
+      renderWithDraft("Sonamos");
+      exit();
+      fireEvent.click(await screen.findByRole("button", { name: "Keep editing" }));
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Close album detail")).toBeInTheDocument();
+      expect(screen.getByLabelText("Draft")).toHaveValue("Sonamos");
+      expect(leftTheRelease()).toBe(false);
+    });
+
+    it("closes the modal on Discard changes", async () => {
+      renderWithDraft("Sonamos");
+      fireEvent.click(screen.getByLabelText("Close album detail"));
+      fireEvent.click(await screen.findByRole("button", { name: "Discard changes" }));
+      expect(mockBack).toHaveBeenCalledTimes(1);
+      expect(screen.queryByLabelText("Close album detail")).not.toBeInTheDocument();
+    });
+
+    it("follows the link on Discard changes", async () => {
+      renderWithDraft("Sonamos");
+      fireEvent.click(screen.getByRole("link", { name: "Next release" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Discard changes" }));
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/album/43");
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    // A reload, a typed URL or closing the tab can only be guarded by the browser's own prompt.
+    it("asks the browser to confirm unloading only while a draft is unsaved", () => {
+      renderWithDraft("");
+      const clean = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(clean);
+      expect(clean.defaultPrevented).toBe(false);
+
+      fireEvent.change(screen.getByLabelText("Draft"), { target: { value: "Sonamos" } });
+      const dirty = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(dirty);
+      expect(dirty.defaultPrevented).toBe(true);
+    });
+
+    it("forgets a draft once the route moves to another release", () => {
+      const { rerender } = renderWithDraft("Sonamos");
+      mockParams.mockReturnValue({ id: "43" });
+      mockPathname.mockReturnValue("/dashboard/album/43");
+      mockUseGetInformationQuery.mockReturnValue({ data: undefined, isLoading: true, isError: false });
+      rerender(<AlbumPopup />);
+      fireEvent.click(screen.getByLabelText("Close album detail"));
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(mockBack).toHaveBeenCalledTimes(1);
+    });
   });
 });
