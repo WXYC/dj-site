@@ -4,6 +4,7 @@ import { AlbumEntry } from "../catalog/types";
 import type { BinLibraryDetails } from "@wxyc/shared/dtos";
 import { convertToAlbumEntry } from "../catalog/conversions";
 import { BinMutationQuery, DJBinQuery } from "./types";
+import { sortBinByShelf } from "./shelfOrder";
 
 export const binApi = createApi({
   reducerPath: "binApi",
@@ -15,7 +16,7 @@ export const binApi = createApi({
         url: `/?dj_id=${dj_id}`,
       }),
       transformResponse: (response: BinLibraryDetails[] | null) =>
-        response ? response.map(convertToAlbumEntry) : [],
+        response ? sortBinByShelf(response.map(convertToAlbumEntry)) : [],
       providesTags: ["Bin"],
     }),
     deleteFromBin: builder.mutation<void, BinMutationQuery>({

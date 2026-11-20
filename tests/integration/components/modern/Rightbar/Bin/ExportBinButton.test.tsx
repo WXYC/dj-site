@@ -75,7 +75,8 @@ describe("ExportBinButton", () => {
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
     const arg = share.mock.calls[0][0];
     expect(arg.title).toBe("WXYC Mail Bin");
-    expect(arg.text).toContain("DOGA — Juana Molina (Sonamos)");
+    expect(arg.text).toContain("Juana Molina — DOGA");
+    expect(arg.text).not.toContain("Sonamos");
     // Sharing is its own confirmation — no clipboard write, no toast.
     expect(write).not.toHaveBeenCalled();
     expect(toast.success).not.toHaveBeenCalled();
@@ -121,7 +122,7 @@ describe("ExportBinButton", () => {
     await user.click(screen.getByRole("button", { name: "Export Mail Bin" }));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    expect(writeText.mock.calls[0][0]).toContain("DOGA\tJuana Molina");
+    expect(writeText.mock.calls[0][0]).toContain("Juana Molina\tDOGA");
     await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
   });
 

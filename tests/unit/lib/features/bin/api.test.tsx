@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { binApi, useGetBinQuery, useDeleteFromBinMutation, useAddToBinMutation } from "@/lib/features/bin/api";
 import { describeApi } from "@/tests/helpers/api-harness";
+import { configureStore } from "@reduxjs/toolkit";
+import { http, HttpResponse } from "msw";
+import { server } from "@/tests/fakes/server";
+import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
+import { createTestBinResponse } from "@/tests/fixtures/fixtures";
 
 // Mock the authentication client to prevent token fetch issues
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -61,6 +66,34 @@ describe("binApi", () => {
     it("should have initiate method for getBin", () => {
       expect(binApi.endpoints.getBin.initiate).toBeDefined();
       expect(typeof binApi.endpoints.getBin.initiate).toBe("function");
+    });
+
+    it("returns the bin in shelf order, whatever order the server sends", async () => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/djs/bin/`, () =>
+          HttpResponse.json([
+            createTestBinResponse({ artist_name: "Stereolab", genre_name: "Rock", format_name: "cd" }),
+            createTestBinResponse({ artist_name: "Duke Ellington & John Coltrane", genre_name: "Jazz", format_name: "vinyl" }),
+            createTestBinResponse({ artist_name: "Juana Molina", genre_name: "Rock", format_name: "vinyl" }),
+            createTestBinResponse({ artist_name: "Cat Power", genre_name: "Rock", format_name: "cd" }),
+          ]),
+        ),
+      );
+      const store = configureStore({
+        reducer: { [binApi.reducerPath]: binApi.reducer },
+        middleware: (gdm) => gdm().concat(binApi.middleware),
+      });
+
+      const { data } = await store.dispatch(
+        binApi.endpoints.getBin.initiate({ dj_id: "1" }),
+      );
+
+      expect(data?.map((entry) => entry.artist.name)).toEqual([
+        "Juana Molina",
+        "Cat Power",
+        "Stereolab",
+        "Duke Ellington & John Coltrane",
+      ]);
     });
   });
 

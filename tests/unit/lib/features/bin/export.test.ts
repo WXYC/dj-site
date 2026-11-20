@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { formatBinForExport, callNumberFor } from "@/lib/features/bin/export";
+import {
+  formatBinForExport,
+  callNumberFor,
+} from "@/lib/features/bin/export";
 import { createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
 
 const stereolab = createTestAlbum({
@@ -27,25 +30,54 @@ const pratt = createTestAlbum({
 });
 
 describe("formatBinForExport", () => {
-  it("emits a TSV header plus one tab-separated row per album", () => {
-    const { tsv } = formatBinForExport([stereolab, pratt]);
+  it("emits a TSV header, then each shelf's heading row above its albums", () => {
+    const { tsv } = formatBinForExport([pratt, stereolab]);
 
-    const lines = tsv.split("\n");
-    expect(lines[0]).toBe("Call #\tAlbum\tArtist\tLabel\tFormat");
-    expect(lines[1]).toBe("JM 12/3\tDOGA\tJuana Molina\tSonamos\tVinyl");
-    expect(lines[2]).toBe(
-      "PR 4/1\tOn Your Own Love Again\tJessica Pratt\tDrag City\tCD",
+    expect(tsv.split("\n")).toEqual([
+      "Call #\tArtist\tAlbum\tFormat",
+      "== Rock vinyl ==",
+      "JM 12/3\tJuana Molina\tDOGA\tVinyl",
+      "== Rock CD ==",
+      "PR 4/1\tJessica Pratt\tOn Your Own Love Again\tCD",
+    ]);
+  });
+
+  it("emits a table with a full-width heading row per shelf and no label", () => {
+    const { html } = formatBinForExport([stereolab]);
+
+    expect(html).toBe(
+      "<table><thead><tr><th>Call #</th><th>Artist</th><th>Album</th><th>Format</th></tr></thead>" +
+        '<tbody><tr><th colspan="4">== Rock vinyl ==</th></tr>' +
+        "<tr><td>JM 12/3</td><td>Juana Molina</td><td>DOGA</td><td>Vinyl</td></tr></tbody></table>",
     );
   });
 
-  it("emits a table whose rows carry each album's cells", () => {
-    const { html } = formatBinForExport([stereolab]);
+  it("names a Various Artists bucket plainly but keeps other names, leaving the entry untouched", () => {
+    const compilation = (name: string, lettercode = "V/A") =>
+      createTestAlbum({
+        title: "Nuggets",
+        format: "CD",
+        entry: 16,
+        artist: createTestArtist({ name, genre: "Rock", lettercode, numbercode: 0 }),
+      });
+    const rockBucket = compilation("Various Artists - Rock - N");
 
-    expect(html).toContain("<table>");
-    expect(html).toContain("<th>Call #</th>");
-    expect(html).toContain(
-      "<td>JM 12/3</td><td>DOGA</td><td>Juana Molina</td><td>Sonamos</td><td>Vinyl</td>",
-    );
+    const { shareText } = formatBinForExport([
+      rockBucket,
+      compilation("Soundtracks - M"),
+      compilation("Various Artists - The Band", "VA"),
+    ]);
+
+    const artists = shareText
+      .split("\n")
+      .filter((line) => line.startsWith("["))
+      .map((line) => line.replace(/^\[[^\]]*\] /, "").split(" — ")[0]);
+    expect(artists).toEqual([
+      "Soundtracks - M",
+      "Various Artists",
+      "Various Artists - The Band",
+    ]);
+    expect(rockBucket.artist.name).toBe("Various Artists - Rock - N");
   });
 
   it("escapes HTML-special characters in cell values", () => {
@@ -60,32 +92,31 @@ describe("formatBinForExport", () => {
     expect(html).not.toContain("<Roll>");
   });
 
-  it("builds readable share lines with the call number and label", () => {
-    const { shareText } = formatBinForExport([stereolab, pratt]);
+  it("builds share text with a blank line and heading before each shelf", () => {
+    const { shareText } = formatBinForExport([pratt, stereolab]);
 
-    const lines = shareText.split("\n");
-    expect(lines[0]).toBe("WXYC Mail Bin");
-    expect(lines[2]).toBe("[JM 12/3] DOGA — Juana Molina (Sonamos)");
-    expect(lines[3]).toBe(
-      "[PR 4/1] On Your Own Love Again — Jessica Pratt (Drag City)",
-    );
+    expect(shareText.split("\n")).toEqual([
+      "WXYC Mail Bin",
+      "",
+      "== Rock vinyl ==",
+      "[JM 12/3] Juana Molina — DOGA",
+      "",
+      "== Rock CD ==",
+      "[PR 4/1] Jessica Pratt — On Your Own Love Again",
+    ]);
   });
 
-  it("omits the parenthetical when an album has no label", () => {
-    const noLabel = createTestAlbum({
-      title: "Untitled",
-      artist: createTestArtist({
-        name: "Unknown",
-        lettercode: "UN",
-        numbercode: 1,
-      }),
-      entry: 5,
-      label: "",
-    });
+  it("exports rows in shelf order", () => {
+    const { tsv } = formatBinForExport([
+      createTestAlbum({ format: "CD", artist: createTestArtist({ name: "Stereolab", genre: "Rock" }) }),
+      createTestAlbum({ format: "Vinyl", artist: createTestArtist({ name: "Juana Molina", genre: "Reggae" }) }),
+    ]);
 
-    const { shareText } = formatBinForExport([noLabel]);
-
-    expect(shareText.split("\n")[2]).toBe("[UN 1/5] Untitled — Unknown");
+    const albumRows = tsv.split("\n").slice(1).filter((l) => l.includes("\t"));
+    expect(albumRows.map((l) => l.split("\t")[1])).toEqual([
+      "Juana Molina",
+      "Stereolab",
+    ]);
   });
 });
 
@@ -139,3 +170,4 @@ describe("callNumberFor with a lettered compilation", () => {
     expect(callNumberFor(album)).toBe(expected);
   });
 });
+
