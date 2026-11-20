@@ -702,7 +702,8 @@ describe("RotationShelf (list view)", () => {
       const menu = screen.getByRole("menu", { name: `Actions for ${IHOMF_TITLE}` });
 
       await waitFor(() => expect(menu.parentElement?.style.maxHeight).toMatch(/^\d+px$/));
-      expect(menu).toHaveStyle({ overflowY: "auto", maxHeight: "inherit" });
+      // The list inherits the popper's cap, so its resolved max-height is the popper's px value.
+      expect(menu).toHaveStyle({ overflowY: "auto", maxHeight: menu.parentElement!.style.maxHeight });
     });
 
     it("closes the menu on Escape and hands focus back to the Move button", async () => {
