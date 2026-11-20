@@ -23,6 +23,9 @@ import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
 import { rotationBinSx } from "@/lib/features/experiences/modern/tokens/roles";
 import { useMenuFocus } from "@/src/hooks/useMenuFocus";
 import { cardText } from "./shelfText";
+import { fitMenuToViewport } from "./fitMenuToViewport";
+
+const MENU_GAP_PX = 4;
 
 export type ShelfMenuAnchor = { kind: "point"; top: number; left: number } | { kind: "element"; el: HTMLElement };
 
@@ -175,7 +178,7 @@ export default function ShelfRowMenu({
         anchorEl={toAnchor(anchor)}
         placement="bottom-start"
         sx={{ zIndex: 10000 }}
-        modifiers={[{ name: "offset", options: { offset: [0, 4] } }]}
+        modifiers={[{ name: "offset", options: { offset: [0, MENU_GAP_PX] } }, fitMenuToViewport(MENU_GAP_PX)]}
       >
         <MenuList
           variant="outlined"
@@ -186,7 +189,7 @@ export default function ShelfRowMenu({
           onKeyDown={(event) => {
             if (event.key === "Escape" || event.key === "Tab") onClose();
           }}
-          sx={{ boxShadow: "md", bgcolor: "background.popup", minWidth: 220 }}
+          sx={{ boxShadow: "md", bgcolor: "background.popup", minWidth: 220, maxHeight: "inherit", overflowY: "auto" }}
         >
           {items}
         </MenuList>
