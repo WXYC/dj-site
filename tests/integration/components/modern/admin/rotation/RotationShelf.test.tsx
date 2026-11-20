@@ -695,6 +695,16 @@ describe("RotationShelf (list view)", () => {
       );
     });
 
+    it("caps the menu at the viewport's remaining height and scrolls it, so every card stays reachable", async () => {
+      const { user } = await renderShelf();
+
+      await openMoveMenu(user, IHOMF_TITLE);
+      const menu = screen.getByRole("menu", { name: `Actions for ${IHOMF_TITLE}` });
+
+      await waitFor(() => expect(menu.parentElement?.style.maxHeight).toMatch(/^\d+px$/));
+      expect(menu).toHaveStyle({ overflowY: "auto", maxHeight: "inherit" });
+    });
+
     it("closes the menu on Escape and hands focus back to the Move button", async () => {
       const { user } = await renderShelf();
 
