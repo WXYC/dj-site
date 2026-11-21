@@ -48,6 +48,7 @@ import {
 import { rotationBinColors, rotationBinSx } from "@/lib/features/experiences/modern/tokens/roles";
 import ReadRetryAlert from "@/src/components/experiences/modern/admin/ReadRetryAlert";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
+import GroupStrip from "@/src/components/experiences/modern/GroupStrip";
 import StatusRegion from "@/src/components/experiences/modern/StatusRegion";
 import { useUtcDayClock } from "@/src/hooks/useUtcDayClock";
 import { ROW_HEIGHT, recordTableSx, tabularNumsSx } from "@/src/utilities/modern/recordTableSx";
@@ -90,7 +91,6 @@ function BinStrip({
   overdue?: number;
   label?: string;
 }): JSX.Element {
-  const c = bin ? rotationBinColors(bin) : null;
   return (
     <tr className="bin-strip">
       <th
@@ -103,32 +103,12 @@ function BinStrip({
           padding: 0,
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            px: 1.5,
-            py: 0.75,
-            bgcolor: c ? c.bg : "background.level1",
-            color: c ? c.text : "text.secondary",
-            boxShadow: c ? `inset 4px 0 0 ${c.bgSelected}` : undefined,
-            borderBottom: "1px solid",
-            borderColor: c ? c.border : "divider",
-          }}
-        >
-          <Typography
-            level="body-xs"
-            textColor="inherit"
-            sx={{ textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: "md" }}
-          >
-            {label ?? (bin ? ROTATION_BIN_LABELS[bin] : "")}
-          </Typography>
-          <Typography level="body-xs" textColor="inherit" sx={{ opacity: 0.8, ...tabularNumsSx }}>
-            {count}
-            {overdue ? ` · ${overdue} overdue` : ""}
-          </Typography>
-        </Box>
+        <GroupStrip
+          label={label ?? (bin ? ROTATION_BIN_LABELS[bin] : "")}
+          count={count}
+          suffix={overdue ? ` · ${overdue} overdue` : undefined}
+          colors={bin ? rotationBinColors(bin) : undefined}
+        />
       </th>
     </tr>
   );
